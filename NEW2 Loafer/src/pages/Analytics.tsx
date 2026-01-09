@@ -141,10 +141,18 @@ export default function Analytics() {
     return labels[referrer] || referrer;
   }
 
-  function exportToExcel() {
+  async function exportToExcel() {
     const wb = XLSX.utils.book_new();
     const date = new Date().toISOString().split('T')[0];
     const periodLabel = period === '24h' ? '24時間' : period === '7d' ? '7日間' : '30日間';
+
+    // 生データを取得
+    let rawData: any = { pageViews: [], cartItems: [], orders: [] };
+    try {
+      rawData = await api.admin.getRawData(days);
+    } catch (error) {
+      console.error('Error fetching raw data:', error);
+    }
 
     // シート1: サマリー
     const summaryData = [
@@ -159,7 +167,20 @@ export default function Analytics() {
     const wsSummary = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, wsSummary, 'サマリー');
 
-    // シート2: ページ別アクセス数
+    // シート2: ページビュー生データ
+    const pageViewRawData = rawData.pageViews.map((pv: any) => ({
+      '日時': new Date(pv.日時).toLocaleString('ja-JP'),
+      'ページパス': pv.ページパス,
+      'ページ名': pv.ページ名,
+      '商品名': pv.商品名 || '',
+      '流入元': getReferrerLabel(pv.流入元),
+      'セッションID': pv.セッションID,
+      '会員区分': pv.会員区分,
+    }));
+    const wsPageViewRaw = XLSX.utils.json_to_sheet(pageViewRawData);
+    XLSX.utils.book_append_sheet(wb, wsPageViewRaw, 'ページビュー生データ');
+
+    // シート3: ページ別アクセス（集計）
     const pageData = pageViews.map(pv => ({
       'ページ名': pv.page_title,
       'パス': pv.page_path,
@@ -169,9 +190,9 @@ export default function Analytics() {
       'ユニークアクセス数（非会員）': pv.anonymous_users,
     }));
     const wsPages = XLSX.utils.json_to_sheet(pageData);
-    XLSX.utils.book_append_sheet(wb, wsPages, 'ページ別アクセス');
+    XLSX.utils.book_append_sheet(wb, wsPages, 'ページ別アクセス（集計）');
 
-    // シート3: 流入元別アクセス数
+    // シート4: 流入元別アクセス数
     const referrerData = referrerStats.map(r => ({
       '流入元': getReferrerLabel(r.referrer),
       '総アクセス数': r.views,
@@ -180,7 +201,21 @@ export default function Analytics() {
     const wsReferrers = XLSX.utils.json_to_sheet(referrerData);
     XLSX.utils.book_append_sheet(wb, wsReferrers, '流入元別アクセス');
 
-    // シート4: 商品別統計
+    // シート5: カート追加生データ
+    const cartRawData = rawData.cartItems.map((c: any) => ({
+      '日時': new Date(c.日時).toLocaleString('ja-JP'),
+      'アクション': c.アクション,
+      '商品名': c.商品名,
+      'サイズ': c.サイズ || '',
+      'SKU': c.SKU || '',
+      '数量': c.数量,
+      '単価': `¥${Math.floor(c.単価).toLocaleString()}`,
+      'ユーザー': c.ユーザー || '非会員',
+    }));
+    const wsCartRaw = XLSX.utils.json_to_sheet(cartRawData);
+    XLSX.utils.book_append_sheet(wb, wsCartRaw, 'カート追加生データ');
+
+    // シート6: 商品別統計（集計）
     const productData = productStats.map(p => ({
       '商品名': p.product_name,
       'カート追加（総数）': p.cart_additions,
@@ -190,9 +225,25 @@ export default function Analytics() {
       '売上': `¥${Math.floor(p.revenue).toLocaleString()}`,
     }));
     const wsProducts = XLSX.utils.json_to_sheet(productData);
-    XLSX.utils.book_append_sheet(wb, wsProducts, '商品別統計');
+    XLSX.utils.book_append_sheet(wb, wsProducts, '商品別統計（集計）');
 
-    // シート5: スタイリング別アクセス数
+    // シート7: 注文生データ
+    const ordersRawData = rawData.orders.map((o: any) => ({
+      '日時': new Date(o.日時).toLocaleString('ja-JP'),
+      '注文ID': o.注文ID?.slice(0, 8) || '',
+      'ステータス': o.ステータス,
+      '商品名': o.商品名,
+      'サイズ': o.サイズ || '',
+      '数量': o.数量,
+      '単価': `¥${Math.floor(o.単価).toLocaleString()}`,
+      '小計': `¥${Math.floor(o.小計).toLocaleString()}`,
+      '注文合計': `¥${Math.floor(o.注文合計).toLocaleString()}`,
+      'ユーザー': o.ユーザー || '',
+    }));
+    const wsOrdersRaw = XLSX.utils.json_to_sheet(ordersRawData);
+    XLSX.utils.book_append_sheet(wb, wsOrdersRaw, '注文生データ');
+
+    // シート8: スタイリング別アクセス数
     const stylingData = stylingStats.map(s => ({
       'スタイリング名': s.styling_title,
       '総アクセス数': s.views,

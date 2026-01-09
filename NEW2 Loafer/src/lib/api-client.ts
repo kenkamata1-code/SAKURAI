@@ -574,6 +574,45 @@ export const api = {
       if (!res.ok) throw new Error('Failed to fetch styling stats');
       return res.json();
     },
+
+    async getRawData(days: number = 30): Promise<{
+      pageViews: Array<{
+        日時: string;
+        ページパス: string;
+        ページ名: string;
+        商品スラッグ: string | null;
+        商品名: string | null;
+        流入元: string;
+        セッションID: string;
+        会員区分: string;
+      }>;
+      cartItems: Array<{
+        日時: string;
+        アクション: string;
+        商品名: string;
+        サイズ: string | null;
+        SKU: string | null;
+        数量: number;
+        単価: number;
+        ユーザー: string | null;
+      }>;
+      orders: Array<{
+        日時: string;
+        注文ID: string;
+        ステータス: string;
+        商品名: string;
+        サイズ: string | null;
+        数量: number;
+        単価: number;
+        小計: number;
+        注文合計: number;
+        ユーザー: string | null;
+      }>;
+    }> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/analytics/raw-data?days=${days}`);
+      if (!res.ok) throw new Error('Failed to fetch raw data');
+      return res.json();
+    },
     
     // S3署名付きURL生成
     async getUploadUrl(filename: string, contentType: string, folder: string = 'products'): Promise<{

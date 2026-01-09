@@ -726,6 +726,80 @@ export const handler = async (event) => {
       return response(200, result.rows);
     }
 
+    // ==================== 生データエクスポート ====================
+    if (path === "/v1/admin/analytics/raw-data" && method === "GET") {
+      if (!userId || !(await isAdmin(db, userId))) {
+        return response(403, { error: "管理者権限が必要です" });
+      }
+      
+      const days = parseInt(queryParams.days || "30");
+      
+      // ページビュー生データ
+      const pageViewsRaw = await db.query(`
+        SELECT 
+          pv.created_at as "日時",
+          pv.page_path as "ページパス",
+          pv.page_title as "ページ名",
+          CASE 
+            WHEN pv.page_path LIKE '/shop/%' THEN REPLACE(pv.page_path, '/shop/', '')
+            ELSE NULL 
+          END as "商品スラッグ",
+          p.name as "商品名",
+          COALESCE(pv.referrer, 'direct') as "流入元",
+          pv.session_id as "セッションID",
+          CASE WHEN pv.cognito_user_id IS NOT NULL THEN '会員' ELSE '非会員' END as "会員区分"
+        FROM page_views pv
+        LEFT JOIN products p ON pv.page_path = '/shop/' || p.slug
+        WHERE pv.created_at >= NOW() - INTERVAL '${days} days'
+        ORDER BY pv.created_at DESC
+      `);
+      
+      // カート追加生データ
+      const cartRaw = await db.query(`
+        SELECT 
+          ci.created_at as "日時",
+          'カート追加' as "アクション",
+          p.name as "商品名",
+          pv.size as "サイズ",
+          pv.sku as "SKU",
+          ci.quantity as "数量",
+          p.price as "単価",
+          pr.email as "ユーザー"
+        FROM cart_items ci
+        JOIN products p ON ci.product_id = p.id
+        LEFT JOIN product_variants pv ON ci.variant_id = pv.id
+        LEFT JOIN profiles pr ON ci.user_id = pr.cognito_user_id
+        WHERE ci.created_at >= NOW() - INTERVAL '${days} days'
+        ORDER BY ci.created_at DESC
+      `);
+      
+      // 注文生データ
+      const ordersRaw = await db.query(`
+        SELECT 
+          o.created_at as "日時",
+          o.id as "注文ID",
+          o.status as "ステータス",
+          oi.product_name as "商品名",
+          oi.variant_size as "サイズ",
+          oi.quantity as "数量",
+          oi.price as "単価",
+          (oi.quantity * oi.price) as "小計",
+          o.total_amount as "注文合計",
+          pr.email as "ユーザー"
+        FROM orders o
+        JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN profiles pr ON o.user_id = pr.cognito_user_id
+        WHERE o.created_at >= NOW() - INTERVAL '${days} days'
+        ORDER BY o.created_at DESC
+      `);
+      
+      return response(200, {
+        pageViews: pageViewsRaw.rows,
+        cartItems: cartRaw.rows,
+        orders: ordersRaw.rows,
+      });
+    }
+
     if (path === "/v1/admin/analytics/summary" && method === "GET") {
       if (!userId || !(await isAdmin(db, userId))) {
         return response(403, { error: "管理者権限が必要です" });
