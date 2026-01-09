@@ -53,8 +53,8 @@ export function usePageTracking(pagePath: string, pageTitle: string) {
           }
         }
 
-        // ページビューをAPIに送信
-        await fetch(`${apiConfig.baseUrl}/page-views`, {
+        // ページビューをAPIに送信（/v1/page-views）
+        await fetch(`${apiConfig.baseUrl}/v1/page-views`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
