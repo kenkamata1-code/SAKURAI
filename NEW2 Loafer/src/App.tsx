@@ -11,6 +11,7 @@ import StylingList from './pages/StylingList';
 import StylingDetail from './pages/StylingDetail';
 import StylingManagement from './pages/StylingManagement';
 import Cart from './pages/Cart';
+import CheckoutSuccess from './pages/CheckoutSuccess';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Login from './pages/Login';
@@ -91,6 +92,7 @@ function App() {
           }
         />
         <Route path="/cart" element={<Cart />} />
+        <Route path="/checkout/success" element={<CheckoutSuccess />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
       </Routes>

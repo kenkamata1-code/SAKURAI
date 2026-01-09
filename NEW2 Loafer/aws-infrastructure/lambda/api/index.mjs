@@ -1,8 +1,14 @@
 import pg from "pg";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import Stripe from "stripe";
 
 const { Pool } = pg;
+
+// Stripe初期化
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" })
+  : null;
 
 // S3クライアント
 const s3Client = new S3Client({ region: process.env.AWS_REGION || "ap-northeast-1" });
@@ -1008,6 +1014,203 @@ export const handler = async (event) => {
         console.error("Error generating presigned URL:", error);
         return response(500, { error: "Failed to generate upload URL" });
       }
+    }
+
+    // ==================== Stripe チェックアウト ====================
+    if (path === "/v1/checkout/create-session" && method === "POST") {
+      if (!stripe) {
+        return response(500, { error: "Stripe is not configured" });
+      }
+      if (!userId) {
+        return response(401, { error: "認証が必要です" });
+      }
+
+      // カートから商品情報を取得
+      const cartResult = await db.query(`
+        SELECT ci.*, p.name as product_name, p.price, p.image_url, pv.size as variant_size
+        FROM cart_items ci
+        JOIN products p ON ci.product_id = p.id
+        LEFT JOIN product_variants pv ON ci.variant_id = pv.id
+        WHERE ci.cognito_user_id = $1
+      `, [userId]);
+
+      if (cartResult.rows.length === 0) {
+        return response(400, { error: "カートが空です" });
+      }
+
+      // Stripeのline_itemsを作成
+      const lineItems = cartResult.rows.map(item => ({
+        price_data: {
+          currency: 'jpy',
+          product_data: {
+            name: item.product_name,
+            description: item.variant_size ? `サイズ: ${item.variant_size}` : undefined,
+            images: item.image_url ? [item.image_url] : undefined,
+          },
+          unit_amount: item.price,
+        },
+        quantity: item.quantity,
+      }));
+
+      // チェックアウトセッションを作成
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: lineItems,
+        mode: 'payment',
+        success_url: `${process.env.STRIPE_SUCCESS_URL || 'https://main.d3o5fndieuvuu2.amplifyapp.com/checkout/success'}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: process.env.STRIPE_CANCEL_URL || 'https://main.d3o5fndieuvuu2.amplifyapp.com/cart',
+        customer_email: userEmail,
+        metadata: {
+          user_id: userId,
+        },
+        shipping_address_collection: {
+          allowed_countries: ['JP'],
+        },
+        shipping_options: [
+          {
+            shipping_rate_data: {
+              type: 'fixed_amount',
+              fixed_amount: {
+                amount: 0,
+                currency: 'jpy',
+              },
+              display_name: '通常配送（送料無料）',
+              delivery_estimate: {
+                minimum: { unit: 'business_day', value: 3 },
+                maximum: { unit: 'business_day', value: 7 },
+              },
+            },
+          },
+        ],
+        locale: 'ja',
+      });
+
+      return response(200, { 
+        sessionId: session.id,
+        url: session.url 
+      });
+    }
+
+    // ==================== Stripe セッション取得 ====================
+    const sessionMatch = path.match(/^\/v1\/checkout\/session\/([^\/]+)$/);
+    if (sessionMatch && method === "GET") {
+      if (!stripe) {
+        return response(500, { error: "Stripe is not configured" });
+      }
+      
+      const sessionId = sessionMatch[1];
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId, {
+          expand: ['line_items', 'shipping_details'],
+        });
+        
+        return response(200, {
+          status: session.payment_status,
+          customerEmail: session.customer_email,
+          amountTotal: session.amount_total,
+          shippingDetails: session.shipping_details,
+        });
+      } catch (error) {
+        return response(404, { error: 'Session not found' });
+      }
+    }
+
+    // ==================== Stripe Webhook ====================
+    if (path === "/v1/webhook/stripe" && method === "POST") {
+      if (!stripe) {
+        return response(500, { error: "Stripe is not configured" });
+      }
+
+      const sig = headers['stripe-signature'];
+      let event;
+
+      try {
+        event = stripe.webhooks.constructEvent(
+          body,
+          sig,
+          process.env.STRIPE_WEBHOOK_SECRET
+        );
+      } catch (err) {
+        console.error('Webhook signature verification failed:', err.message);
+        return response(400, { error: 'Webhook signature verification failed' });
+      }
+
+      // イベント処理
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object;
+          const metaUserId = session.metadata.user_id;
+          
+          // 重複チェック
+          const existingOrder = await db.query(
+            'SELECT id FROM orders WHERE stripe_session_id = $1',
+            [session.id]
+          );
+          if (existingOrder.rows.length > 0) {
+            console.log('Order already exists for session:', session.id);
+            break;
+          }
+
+          // カートから商品情報を取得
+          const cartResult = await db.query(`
+            SELECT ci.*, p.name as product_name, p.price, pv.size as variant_size
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.id
+            LEFT JOIN product_variants pv ON ci.variant_id = pv.id
+            WHERE ci.cognito_user_id = $1
+          `, [metaUserId]);
+
+          if (cartResult.rows.length === 0) {
+            console.error('Cart is empty for user:', metaUserId);
+            break;
+          }
+
+          // 注文を作成
+          const totalAmount = cartResult.rows.reduce(
+            (sum, item) => sum + (item.price * item.quantity), 0
+          );
+
+          const orderResult = await db.query(`
+            INSERT INTO orders (cognito_user_id, total_amount, status, stripe_session_id)
+            VALUES ($1, $2, 'paid', $3)
+            RETURNING id
+          `, [metaUserId, totalAmount, session.id]);
+
+          const orderId = orderResult.rows[0].id;
+
+          // 注文明細を作成
+          for (const item of cartResult.rows) {
+            await db.query(`
+              INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity)
+              VALUES ($1, $2, $3, $4, $5)
+            `, [orderId, item.product_id, item.product_name, item.price, item.quantity]);
+
+            // 在庫を減らす
+            if (item.variant_id) {
+              await db.query(`
+                UPDATE product_variants 
+                SET stock = stock - $1 
+                WHERE id = $2
+              `, [item.quantity, item.variant_id]);
+            }
+          }
+
+          // カートをクリア
+          await db.query(`
+            DELETE FROM cart_items WHERE cognito_user_id = $1
+          `, [metaUserId]);
+
+          console.log('Order created successfully:', orderId);
+          break;
+        }
+        case 'payment_intent.payment_failed': {
+          const paymentIntent = event.data.object;
+          console.error('Payment failed:', paymentIntent.last_payment_error?.message);
+          break;
+        }
+      }
+
+      return response(200, { received: true });
     }
 
     return response(404, { error: "Not found", path, method });

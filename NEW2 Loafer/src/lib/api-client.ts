@@ -628,6 +628,32 @@ export const api = {
       return res.json();
     },
   },
+
+  // チェックアウト（Stripe）
+  checkout: {
+    async createSession(): Promise<{ sessionId: string; url: string }> {
+      const res = await authFetch(`${apiConfig.baseUrl}/checkout/create-session`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create checkout session');
+      }
+      return res.json();
+    },
+
+    async getSession(sessionId: string): Promise<{
+      status: string;
+      customerEmail: string;
+      amountTotal: number;
+      shippingDetails: any;
+    }> {
+      const res = await authFetch(`${apiConfig.baseUrl}/checkout/session/${sessionId}`);
+      if (!res.ok) throw new Error('Failed to get session');
+      return res.json();
+    },
+  },
 };
 
 // S3に画像をアップロードするヘルパー関数

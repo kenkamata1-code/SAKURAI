@@ -13,6 +13,7 @@ export default function Cart() {
   const { user, loading: authLoading } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -32,6 +33,22 @@ export default function Cart() {
       console.error('Error loading cart:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleCheckout() {
+    if (cartItems.length === 0) return;
+    
+    setCheckoutLoading(true);
+    try {
+      const { url } = await api.checkout.createSession();
+      // Stripeのチェックアウトページにリダイレクト
+      window.location.href = url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('決済処理でエラーが発生しました。もう一度お試しください。\nCheckout error. Please try again.');
+    } finally {
+      setCheckoutLoading(false);
     }
   }
 
@@ -242,11 +259,18 @@ export default function Cart() {
                 )}
 
                 <button
-                  onClick={() => alert('購入機能は実装中です / Checkout is coming soon')}
-                  className="w-full py-4 bg-gray-900 text-white text-xs tracking-[0.2em] hover:bg-gray-800 transition flex items-center justify-center gap-2 uppercase"
+                  onClick={handleCheckout}
+                  disabled={checkoutLoading || cartItems.length === 0}
+                  className="w-full py-4 bg-gray-900 text-white text-xs tracking-[0.2em] hover:bg-gray-800 transition flex items-center justify-center gap-2 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Checkout
-                  <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
+                  {checkoutLoading ? (
+                    '処理中... / Processing...'
+                  ) : (
+                    <>
+                      レジに進む / Checkout
+                      <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
+                    </>
+                  )}
                 </button>
 
                 <Link
