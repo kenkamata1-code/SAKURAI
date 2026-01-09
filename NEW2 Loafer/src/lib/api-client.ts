@@ -510,15 +510,16 @@ export const api = {
     },
     
     // 分析データ
-    async getAnalyticsSummary(): Promise<{
+    async getAnalyticsSummary(days: number = 30): Promise<{
       total_page_views: number;
       unique_visitors: number;
       total_orders: number;
       total_revenue: number;
       total_products: number;
       total_users: number;
+      cart_additions: number;
     }> {
-      const res = await authFetch(`${apiConfig.baseUrl}/admin/analytics/summary`);
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/analytics/summary?days=${days}`);
       if (!res.ok) throw new Error('Failed to fetch analytics summary');
       return res.json();
     },
@@ -526,11 +527,51 @@ export const api = {
     async getPageViews(days: number = 30): Promise<Array<{
       date: string;
       page_path: string;
+      page_title?: string;
       views: number;
       unique_sessions: number;
+      referrer?: string;
     }>> {
       const res = await authFetch(`${apiConfig.baseUrl}/admin/analytics/page-views?days=${days}`);
       if (!res.ok) throw new Error('Failed to fetch page views');
+      return res.json();
+    },
+
+    async getReferrerStats(days: number = 30): Promise<Array<{
+      referrer: string;
+      views: number;
+      unique_sessions: number;
+    }>> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/analytics/referrers?days=${days}`);
+      if (!res.ok) throw new Error('Failed to fetch referrer stats');
+      return res.json();
+    },
+
+    async getProductStats(days: number = 30): Promise<Array<{
+      product_id: string;
+      product_name: string;
+      cart_additions: number;
+      unique_cart_users: number;
+      purchases: number;
+      unique_purchasers: number;
+      revenue: number;
+    }>> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/analytics/products?days=${days}`);
+      if (!res.ok) throw new Error('Failed to fetch product stats');
+      return res.json();
+    },
+
+    async getStylingStats(days: number = 30): Promise<Array<{
+      styling_id: string;
+      styling_title: string;
+      image_url: string;
+      views: number;
+      unique_sessions: number;
+      logged_in_users: number;
+      anonymous_users: number;
+    }>> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/analytics/styling?days=${days}`);
+      if (!res.ok) throw new Error('Failed to fetch styling stats');
       return res.json();
     },
     

@@ -141,8 +141,12 @@ export const handler = async (event) => {
                 page_title TEXT NOT NULL,
                 cognito_user_id VARCHAR(255),
                 session_id TEXT NOT NULL,
+                referrer TEXT DEFAULT 'direct',
                 created_at TIMESTAMPTZ DEFAULT NOW()
             )`,
+            
+            // page_viewsにreferrerカラムがなければ追加
+            `ALTER TABLE page_views ADD COLUMN IF NOT EXISTS referrer TEXT DEFAULT 'direct'`,
             
             // インデックス
             `CREATE INDEX IF NOT EXISTS idx_products_slug ON products(slug)`,

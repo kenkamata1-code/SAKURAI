@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api-client';
-import { BarChart3, Eye, Users, ShoppingCart, Package, Download, ImageIcon } from 'lucide-react';
+import { BarChart3, Eye, Users, ShoppingCart, Package, Download, ImageIcon, Globe } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface AnalyticsSummary {
@@ -20,6 +20,12 @@ interface PageViewData {
   unique_sessions: number;
   logged_in_users: number;
   anonymous_users: number;
+}
+
+interface ReferrerStats {
+  referrer: string;
+  views: number;
+  unique_sessions: number;
 }
 
 interface ProductStats {
@@ -48,6 +54,7 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [pageViews, setPageViews] = useState<PageViewData[]>([]);
+  const [referrerStats, setReferrerStats] = useState<ReferrerStats[]>([]);
   const [productStats, setProductStats] = useState<ProductStats[]>([]);
   const [stylingStats, setStylingStats] = useState<StylingStats[]>([]);
   const [period, setPeriod] = useState<Period>('7d');
@@ -61,12 +68,18 @@ export default function Analytics() {
   async function fetchAnalytics() {
     setLoading(true);
     try {
-      const [summaryData, pageViewsData] = await Promise.all([
-        api.admin.getAnalyticsSummary(),
+      const [summaryData, pageViewsData, referrerData, productData, stylingData] = await Promise.all([
+        api.admin.getAnalyticsSummary(days),
         api.admin.getPageViews(days),
+        api.admin.getReferrerStats(days),
+        api.admin.getProductStats(days),
+        api.admin.getStylingStats(days),
       ]);
       
       setSummary(summaryData);
+      setReferrerStats(referrerData || []);
+      setProductStats(productData || []);
+      setStylingStats(stylingData || []);
       
       // ページ別の集計
       const pagePathStats = pageViewsData.reduce((acc: Record<string, PageViewData>, pv: any) => {
@@ -88,9 +101,6 @@ export default function Analytics() {
 
       const sortedPages = Object.values(pagePathStats).sort((a, b) => b.views - a.views);
       setPageViews(sortedPages);
-
-      // 商品・スタイリング統計（仮データ）
-      // 実際のAPIからデータを取得する場合はここを更新
       
     } catch (error) {
       console.error('Error fetching analytics:', error);
@@ -115,20 +125,85 @@ export default function Analytics() {
     return titles[path] || path;
   }
 
+  function getReferrerLabel(referrer: string): string {
+    const labels: Record<string, string> = {
+      'direct': 'ダイレクト（直接アクセス）',
+      'internal': '内部リンク',
+      'Google': 'Google 検索',
+      'Yahoo': 'Yahoo 検索',
+      'Bing': 'Bing 検索',
+      'Instagram': 'Instagram',
+      'Facebook': 'Facebook',
+      'X (Twitter)': 'X (Twitter)',
+      'YouTube': 'YouTube',
+      'LINE': 'LINE',
+    };
+    return labels[referrer] || referrer;
+  }
+
   function exportToExcel() {
+    const wb = XLSX.utils.book_new();
+    const date = new Date().toISOString().split('T')[0];
+    const periodLabel = period === '24h' ? '24時間' : period === '7d' ? '7日間' : '30日間';
+
+    // シート1: サマリー
+    const summaryData = [
+      { '指標': '総ページビュー', '値': summary?.total_page_views || 0 },
+      { '指標': 'ユニークアクセス数', '値': summary?.unique_visitors || 0 },
+      { '指標': 'カート追加数', '値': summary?.cart_additions || 0 },
+      { '指標': '商品購入数', '値': summary?.total_orders || 0 },
+      { '指標': '総売上', '値': `¥${Math.floor(summary?.total_revenue || 0).toLocaleString()}` },
+      { '指標': '商品数', '値': summary?.total_products || 0 },
+      { '指標': 'ユーザー数', '値': summary?.total_users || 0 },
+    ];
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'サマリー');
+
+    // シート2: ページ別アクセス数
     const pageData = pageViews.map(pv => ({
       'ページ名': pv.page_title,
       'パス': pv.page_path,
       '総アクセス数': pv.views,
       'ユニークアクセス数（合計）': pv.unique_sessions,
+      'ユニークアクセス数（会員）': pv.logged_in_users,
+      'ユニークアクセス数（非会員）': pv.anonymous_users,
     }));
+    const wsPages = XLSX.utils.json_to_sheet(pageData);
+    XLSX.utils.book_append_sheet(wb, wsPages, 'ページ別アクセス');
 
-    const ws = XLSX.utils.json_to_sheet(pageData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'アクセス統計');
+    // シート3: 流入元別アクセス数
+    const referrerData = referrerStats.map(r => ({
+      '流入元': getReferrerLabel(r.referrer),
+      '総アクセス数': r.views,
+      'ユニークアクセス数': r.unique_sessions,
+    }));
+    const wsReferrers = XLSX.utils.json_to_sheet(referrerData);
+    XLSX.utils.book_append_sheet(wb, wsReferrers, '流入元別アクセス');
 
-    const date = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `アクセス統計_${date}.xlsx`);
+    // シート4: 商品別統計
+    const productData = productStats.map(p => ({
+      '商品名': p.product_name,
+      'カート追加（総数）': p.cart_additions,
+      'カート追加（ユニーク）': p.unique_cart_users,
+      '購入数（総数）': p.purchases,
+      '購入数（ユニーク）': p.unique_purchasers,
+      '売上': `¥${Math.floor(p.revenue).toLocaleString()}`,
+    }));
+    const wsProducts = XLSX.utils.json_to_sheet(productData);
+    XLSX.utils.book_append_sheet(wb, wsProducts, '商品別統計');
+
+    // シート5: スタイリング別アクセス数
+    const stylingData = stylingStats.map(s => ({
+      'スタイリング名': s.styling_title,
+      '総アクセス数': s.views,
+      'ユニークアクセス数（合計）': s.unique_sessions,
+      'ユニークアクセス数（会員）': s.logged_in_users,
+      'ユニークアクセス数（非会員）': s.anonymous_users,
+    }));
+    const wsStyling = XLSX.utils.json_to_sheet(stylingData);
+    XLSX.utils.book_append_sheet(wb, wsStyling, 'スタイリング別アクセス');
+
+    XLSX.writeFile(wb, `アクセス統計_${periodLabel}_${date}.xlsx`);
   }
 
   if (loading) {
@@ -272,6 +347,56 @@ export default function Analytics() {
                       </td>
                       <td className="px-6 py-4 text-center text-sm text-gray-900">
                         {page.anonymous_users.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 流入元別アクセス数 */}
+        <div className="border border-gray-200 mb-8">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-sm tracking-wider font-light">流入元別アクセス数</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="px-6 py-4 text-left text-xs tracking-wider text-gray-500 font-normal">
+                    流入元
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs tracking-wider text-gray-500 font-normal">
+                    総アクセス数
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs tracking-wider text-gray-500 font-normal">
+                    ユニークアクセス数
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {referrerStats.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-12 text-center text-sm text-gray-500">
+                      データがありません
+                    </td>
+                  </tr>
+                ) : (
+                  referrerStats.map((r, index) => (
+                    <tr key={r.referrer} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <Globe className="w-4 h-4 text-gray-400" strokeWidth={1.5} />
+                          <span className="text-sm text-gray-900">{getReferrerLabel(r.referrer)}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                        {r.views.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                        {r.unique_sessions.toLocaleString()}
                       </td>
                     </tr>
                   ))

@@ -499,12 +499,12 @@ export const handler = async (event) => {
     // ==================== ページビュー ====================
     if (path === "/v1/page-views" && method === "POST") {
       const parsedBody = JSON.parse(body || "{}");
-      const { page_path, page_title, session_id } = parsedBody;
+      const { page_path, page_title, session_id, referrer } = parsedBody;
 
       await db.query(`
-        INSERT INTO page_views (page_path, page_title, cognito_user_id, session_id)
-        VALUES ($1, $2, $3, $4)
-      `, [page_path, page_title, userId, session_id]);
+        INSERT INTO page_views (page_path, page_title, cognito_user_id, session_id, referrer)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [page_path, page_title, userId, session_id, referrer || 'direct']);
       return response(200, { success: true });
     }
 
@@ -731,16 +731,114 @@ export const handler = async (event) => {
         return response(403, { error: "管理者権限が必要です" });
       }
       
+      const days = parseInt(queryParams.days || "30");
       const result = await db.query(`
         SELECT 
-          (SELECT COUNT(*) FROM page_views WHERE created_at >= NOW() - INTERVAL '30 days') as total_page_views,
-          (SELECT COUNT(DISTINCT session_id) FROM page_views WHERE created_at >= NOW() - INTERVAL '30 days') as unique_visitors,
-          (SELECT COUNT(*) FROM orders) as total_orders,
-          (SELECT COALESCE(SUM(total_amount), 0) FROM orders) as total_revenue,
+          (SELECT COUNT(*) FROM page_views WHERE created_at >= NOW() - INTERVAL '${days} days') as total_page_views,
+          (SELECT COUNT(DISTINCT session_id) FROM page_views WHERE created_at >= NOW() - INTERVAL '${days} days') as unique_visitors,
+          (SELECT COUNT(*) FROM orders WHERE created_at >= NOW() - INTERVAL '${days} days') as total_orders,
+          (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE created_at >= NOW() - INTERVAL '${days} days') as total_revenue,
           (SELECT COUNT(*) FROM products) as total_products,
-          (SELECT COUNT(*) FROM profiles) as total_users
+          (SELECT COUNT(*) FROM profiles) as total_users,
+          (SELECT COUNT(*) FROM cart_items WHERE created_at >= NOW() - INTERVAL '${days} days') as cart_additions
       `);
       return response(200, result.rows[0]);
+    }
+
+    // ==================== 流入元別統計 ====================
+    if (path === "/v1/admin/analytics/referrers" && method === "GET") {
+      if (!userId || !(await isAdmin(db, userId))) {
+        return response(403, { error: "管理者権限が必要です" });
+      }
+      
+      const days = parseInt(queryParams.days || "30");
+      const result = await db.query(`
+        SELECT 
+          COALESCE(referrer, 'direct') as referrer,
+          COUNT(*) as views,
+          COUNT(DISTINCT session_id) as unique_sessions
+        FROM page_views
+        WHERE created_at >= NOW() - INTERVAL '${days} days'
+        GROUP BY COALESCE(referrer, 'direct')
+        ORDER BY views DESC
+      `);
+      return response(200, result.rows);
+    }
+
+    // ==================== 商品別統計 ====================
+    if (path === "/v1/admin/analytics/products" && method === "GET") {
+      if (!userId || !(await isAdmin(db, userId))) {
+        return response(403, { error: "管理者権限が必要です" });
+      }
+      
+      const days = parseInt(queryParams.days || "30");
+      const result = await db.query(`
+        SELECT 
+          p.id as product_id,
+          p.name as product_name,
+          COALESCE(cart_stats.cart_additions, 0) as cart_additions,
+          COALESCE(cart_stats.unique_cart_users, 0) as unique_cart_users,
+          COALESCE(order_stats.purchases, 0) as purchases,
+          COALESCE(order_stats.unique_purchasers, 0) as unique_purchasers,
+          COALESCE(order_stats.revenue, 0) as revenue
+        FROM products p
+        LEFT JOIN (
+          SELECT 
+            ci.product_id,
+            COUNT(*) as cart_additions,
+            COUNT(DISTINCT ci.user_id) as unique_cart_users
+          FROM cart_items ci
+          WHERE ci.created_at >= NOW() - INTERVAL '${days} days'
+          GROUP BY ci.product_id
+        ) cart_stats ON p.id = cart_stats.product_id
+        LEFT JOIN (
+          SELECT 
+            oi.product_id,
+            SUM(oi.quantity) as purchases,
+            COUNT(DISTINCT o.user_id) as unique_purchasers,
+            SUM(oi.quantity * oi.price) as revenue
+          FROM order_items oi
+          JOIN orders o ON oi.order_id = o.id
+          WHERE o.created_at >= NOW() - INTERVAL '${days} days'
+          GROUP BY oi.product_id
+        ) order_stats ON p.id = order_stats.product_id
+        ORDER BY cart_stats.cart_additions DESC NULLS LAST
+      `);
+      return response(200, result.rows);
+    }
+
+    // ==================== スタイリング別統計 ====================
+    if (path === "/v1/admin/analytics/styling" && method === "GET") {
+      if (!userId || !(await isAdmin(db, userId))) {
+        return response(403, { error: "管理者権限が必要です" });
+      }
+      
+      const days = parseInt(queryParams.days || "30");
+      const result = await db.query(`
+        SELECT 
+          s.id as styling_id,
+          s.title as styling_title,
+          s.image_url,
+          COALESCE(pv_stats.views, 0) as views,
+          COALESCE(pv_stats.unique_sessions, 0) as unique_sessions,
+          COALESCE(pv_stats.logged_in_users, 0) as logged_in_users,
+          COALESCE(pv_stats.anonymous_users, 0) as anonymous_users
+        FROM styling s
+        LEFT JOIN (
+          SELECT 
+            REPLACE(page_path, '/styling/', '') as slug,
+            COUNT(*) as views,
+            COUNT(DISTINCT session_id) as unique_sessions,
+            COUNT(DISTINCT CASE WHEN cognito_user_id IS NOT NULL THEN session_id END) as logged_in_users,
+            COUNT(DISTINCT CASE WHEN cognito_user_id IS NULL THEN session_id END) as anonymous_users
+          FROM page_views
+          WHERE page_path LIKE '/styling/%'
+            AND created_at >= NOW() - INTERVAL '${days} days'
+          GROUP BY REPLACE(page_path, '/styling/', '')
+        ) pv_stats ON s.slug = pv_stats.slug
+        ORDER BY pv_stats.views DESC NULLS LAST
+      `);
+      return response(200, result.rows);
     }
 
     // ==================== 管理者用 ユーザー作成 ====================
