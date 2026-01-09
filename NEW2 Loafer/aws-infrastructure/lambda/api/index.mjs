@@ -768,7 +768,7 @@ export const handler = async (event) => {
         FROM cart_items ci
         JOIN products p ON ci.product_id = p.id
         LEFT JOIN product_variants pv ON ci.variant_id = pv.id
-        LEFT JOIN profiles pr ON ci.user_id = pr.cognito_user_id
+        LEFT JOIN profiles pr ON ci.cognito_user_id = pr.cognito_user_id
         WHERE ci.created_at >= NOW() - INTERVAL '${days} days'
         ORDER BY ci.created_at DESC
       `);
@@ -780,15 +780,15 @@ export const handler = async (event) => {
           o.id as "注文ID",
           o.status as "ステータス",
           oi.product_name as "商品名",
-          oi.variant_size as "サイズ",
+          '' as "サイズ",
           oi.quantity as "数量",
-          oi.price as "単価",
-          (oi.quantity * oi.price) as "小計",
+          oi.product_price as "単価",
+          (oi.quantity * oi.product_price) as "小計",
           o.total_amount as "注文合計",
           pr.email as "ユーザー"
         FROM orders o
         JOIN order_items oi ON o.id = oi.order_id
-        LEFT JOIN profiles pr ON o.user_id = pr.cognito_user_id
+        LEFT JOIN profiles pr ON o.cognito_user_id = pr.cognito_user_id
         WHERE o.created_at >= NOW() - INTERVAL '${days} days'
         ORDER BY o.created_at DESC
       `);
