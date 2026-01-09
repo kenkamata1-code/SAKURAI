@@ -63,7 +63,7 @@ export default function Cart() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center pt-20">
-        <div className="text-gray-800">読み込み中...</div>
+        <div className="text-gray-800">読み込み中... / Loading...</div>
       </div>
     );
   }
@@ -74,10 +74,12 @@ export default function Cart() {
         <div className="text-center text-gray-800 max-w-md mx-auto px-6">
           <ShoppingCart className="w-16 h-16 mx-auto mb-6 opacity-20 text-gray-800" strokeWidth={1} />
           <h2 className="text-2xl tracking-[0.1em] font-light mb-4">
-            カートを表示するにはログインが必要です
+            カートを表示するにはログインが必要です<br />
+            <span className="text-sm text-gray-500">Please log in to view your cart</span>
           </h2>
           <p className="text-sm text-gray-600 mb-8 leading-loose">
-            ログインして、お気に入りの商品をカートに追加しましょう
+            ログインして、お気に入りの商品をカートに追加しましょう<br />
+            <span className="text-xs text-gray-500">Log in and add your favorite items to your cart</span>
           </p>
           <Link
             to="/shop"
@@ -96,10 +98,12 @@ export default function Cart() {
         <div className="text-center text-gray-800 max-w-md mx-auto px-6">
           <ShoppingCart className="w-16 h-16 mx-auto mb-6 opacity-20 text-gray-800" strokeWidth={1} />
           <h2 className="text-2xl tracking-[0.1em] font-light mb-4">
-            カートは空です
+            カートは空です<br />
+            <span className="text-sm text-gray-500">Your cart is empty</span>
           </h2>
           <p className="text-sm text-gray-600 mb-8 leading-loose">
-            お気に入りの商品を見つけて、カートに追加しましょう
+            お気に入りの商品を見つけて、カートに追加しましょう<br />
+            <span className="text-xs text-gray-500">Find your favorite items and add them to your cart</span>
           </p>
           <Link
             to="/shop"
@@ -123,8 +127,8 @@ export default function Cart() {
             <p className="text-xs tracking-[0.15em] text-gray-500">
               ショッピングカート
             </p>
-            <p className="text-xs tracking-[0.15em] text-gray-500">
-              {cartItems.length}点の商品
+            <p className="text-xs tracking-[0.15em] text-gray-500 mt-1">
+              {cartItems.length}点の商品 / {cartItems.length} item{cartItems.length > 1 ? 's' : ''}
             </p>
           </div>
 
@@ -156,7 +160,7 @@ export default function Cart() {
                       </Link>
                       {item.product_variants && (
                         <p className="text-xs text-gray-500 mt-1">
-                          サイズ: {item.product_variants.size}
+                          サイズ / Size: {item.product_variants.size}
                         </p>
                       )}
                       <p className="text-sm text-gray-600 mt-2">
@@ -201,20 +205,21 @@ export default function Cart() {
 
             <div className="lg:col-span-1">
               <div className="border border-gray-200 p-6 sticky top-24">
-                <h2 className="text-sm tracking-[0.2em] font-light mb-6 uppercase">
+                <h2 className="text-sm tracking-[0.2em] font-light mb-1 uppercase">
                   Order Summary
                 </h2>
+                <p className="text-xs text-gray-500 mb-6">ご注文内容</p>
 
                 <div className="space-y-3 border-b border-gray-200 pb-4 mb-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">小計</span>
+                    <span className="text-gray-600">小計 / Subtotal</span>
                     <span className="text-gray-800">¥{formatPrice(total)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">配送料</span>
+                    <span className="text-gray-600">配送料 / Shipping</span>
                     <span className="text-gray-800">
                       {total >= 10000 ? (
-                        <span className="text-green-600">無料</span>
+                        <span className="text-green-600">無料 / Free</span>
                       ) : (
                         '¥800'
                       )}
@@ -223,7 +228,7 @@ export default function Cart() {
                 </div>
 
                 <div className="flex justify-between text-lg mb-6">
-                  <span className="text-gray-800">合計</span>
+                  <span className="text-gray-800">合計 / Total</span>
                   <span className="text-gray-800">
                     ¥{formatPrice(total + (total >= 10000 ? 0 : 800))}
                   </span>
@@ -231,12 +236,13 @@ export default function Cart() {
 
                 {total < 10000 && (
                   <p className="text-xs text-gray-600 mb-6 leading-loose">
-                    あと¥{formatPrice(10000 - total)}で送料無料
+                    あと¥{formatPrice(10000 - total)}で送料無料<br />
+                    <span className="text-gray-400">¥{formatPrice(10000 - total)} more for free shipping</span>
                   </p>
                 )}
 
                 <button
-                  onClick={() => alert('購入機能は実装中です')}
+                  onClick={() => alert('購入機能は実装中です / Checkout is coming soon')}
                   className="w-full py-4 bg-gray-900 text-white text-xs tracking-[0.2em] hover:bg-gray-800 transition flex items-center justify-center gap-2 uppercase"
                 >
                   Checkout
@@ -247,7 +253,7 @@ export default function Cart() {
                   to="/shop"
                   className="block text-center mt-4 text-sm text-gray-600 hover:text-gray-900 transition"
                 >
-                  買い物を続ける
+                  買い物を続ける / Continue Shopping
                 </Link>
               </div>
             </div>
