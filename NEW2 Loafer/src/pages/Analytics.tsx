@@ -392,7 +392,7 @@ export default function Analytics() {
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="px-6 py-4 text-left text-xs tracking-wider text-gray-500 font-normal">
-                    流入元
+                    流入元URL
                   </th>
                   <th className="px-6 py-4 text-center text-xs tracking-wider text-gray-500 font-normal">
                     総アクセス数

@@ -860,7 +860,7 @@ export const handler = async (event) => {
           SELECT 
             ci.product_id,
             COUNT(*) as cart_additions,
-            COUNT(DISTINCT ci.user_id) as unique_cart_users
+            COUNT(DISTINCT ci.cognito_user_id) as unique_cart_users
           FROM cart_items ci
           WHERE ci.created_at >= NOW() - INTERVAL '${days} days'
           GROUP BY ci.product_id
@@ -869,8 +869,8 @@ export const handler = async (event) => {
           SELECT 
             oi.product_id,
             SUM(oi.quantity) as purchases,
-            COUNT(DISTINCT o.user_id) as unique_purchasers,
-            SUM(oi.quantity * oi.price) as revenue
+            COUNT(DISTINCT o.cognito_user_id) as unique_purchasers,
+            SUM(oi.quantity * oi.product_price) as revenue
           FROM order_items oi
           JOIN orders o ON oi.order_id = o.id
           WHERE o.created_at >= NOW() - INTERVAL '${days} days'
