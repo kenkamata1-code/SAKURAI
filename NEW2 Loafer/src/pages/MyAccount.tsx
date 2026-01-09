@@ -1,27 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { api, type Order } from '../lib/api-client';
+import { updatePassword } from 'aws-amplify/auth';
 import { User, Package, Edit2, Save, X, Mail, Lock } from 'lucide-react';
 
-interface Order {
-  id: string;
-  total_amount: number;
-  status: string;
-  shipping_name: string;
-  shipping_address: string;
-  created_at: string;
-  order_items: OrderItem[];
-}
-
-interface OrderItem {
-  id: string;
-  product_name: string;
-  product_price: number;
-  quantity: number;
-}
-
 export default function MyAccount() {
-  const { profile, user } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -35,12 +19,10 @@ export default function MyAccount() {
     gender: '',
     birth_date: '',
   });
-  const [showEmailChange, setShowEmailChange] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
+  const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [updatingEmail, setUpdatingEmail] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
   useEffect(() => {
@@ -58,23 +40,16 @@ export default function MyAccount() {
   }, [profile]);
 
   useEffect(() => {
-    fetchOrders();
+    if (user) {
+      fetchOrders();
+    } else {
+      setLoading(false);
+    }
   }, [user]);
 
   async function fetchOrders() {
-    if (!user) return;
-
     try {
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (ordersError) throw ordersError;
+      const ordersData = await api.orders.list();
       setOrders(ordersData || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -88,20 +63,16 @@ export default function MyAccount() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          phone: formData.phone,
-          postal_code: formData.postal_code,
-          address: formData.address,
-          gender: formData.gender || null,
-          birth_date: formData.birth_date || null,
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
+      await api.profile.update({
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        phone: formData.phone,
+        postal_code: formData.postal_code,
+        address: formData.address,
+        gender: formData.gender || undefined,
+        birth_date: formData.birth_date || undefined,
+      });
+      await refreshProfile();
       setEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -111,29 +82,8 @@ export default function MyAccount() {
     }
   }
 
-  async function handleEmailChange() {
-    if (!newEmail) {
-      alert('新しいメールアドレスを入力してください / Please enter a new email address');
-      return;
-    }
-
-    setUpdatingEmail(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail });
-      if (error) throw error;
-      alert('確認メールを送信しました。新しいメールアドレスで確認してください。 / Confirmation email sent. Please verify your new email address.');
-      setShowEmailChange(false);
-      setNewEmail('');
-    } catch (error) {
-      console.error('Error updating email:', error);
-      alert('メールアドレスの更新に失敗しました / Failed to update email');
-    } finally {
-      setUpdatingEmail(false);
-    }
-  }
-
   async function handlePasswordChange() {
-    if (!newPassword || !confirmPassword) {
+    if (!oldPassword || !newPassword || !confirmPassword) {
       alert('すべてのフィールドを入力してください / Please fill in all fields');
       return;
     }
@@ -150,10 +100,10 @@ export default function MyAccount() {
 
     setUpdatingPassword(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
+      await updatePassword({ oldPassword, newPassword });
       alert('パスワードを更新しました / Password updated successfully');
       setShowPasswordChange(false);
+      setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
@@ -454,62 +404,19 @@ export default function MyAccount() {
                     <Mail className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
                   </div>
                   <h2 className="text-xl tracking-wider font-light">
-                    メールアドレス変更<br />
-                    <span className="text-xs text-gray-500">Change Email</span>
+                    メールアドレス<br />
+                    <span className="text-xs text-gray-500">Email Address</span>
                   </h2>
                 </div>
 
-                {!showEmailChange ? (
-                  <div className="border border-gray-200 p-6">
-                    <div className="mb-4">
-                      <label className="block text-xs tracking-wider text-gray-500 mb-2">
-                        現在のメールアドレス / Current Email
-                      </label>
-                      <div className="text-sm text-gray-800">{profile?.email}</div>
-                    </div>
-                    <button
-                      onClick={() => setShowEmailChange(true)}
-                      className="w-full px-4 py-2 border border-gray-300 text-xs tracking-wider hover:bg-gray-50 transition"
-                    >
-                      メールアドレスを変更 / Change Email
-                    </button>
+                <div className="border border-gray-200 p-6">
+                  <div>
+                    <label className="block text-xs tracking-wider text-gray-500 mb-2">
+                      登録メールアドレス / Registered Email
+                    </label>
+                    <div className="text-sm text-gray-800">{profile?.email}</div>
                   </div>
-                ) : (
-                  <div className="border border-gray-200 p-6 space-y-4">
-                    <div>
-                      <label className="block text-xs tracking-wider text-gray-500 mb-2">
-                        新しいメールアドレス / New Email
-                      </label>
-                      <input
-                        type="email"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 text-sm focus:border-gray-900 focus:outline-none"
-                        placeholder="新しいメールアドレス / New email"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleEmailChange}
-                        disabled={updatingEmail}
-                        className="flex-1 px-4 py-2 bg-gray-900 text-white text-xs tracking-wider hover:bg-gray-800 transition disabled:opacity-50"
-                      >
-                        <Save className="w-3 h-3 inline mr-2" strokeWidth={1.5} />
-                        更新 / Update
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowEmailChange(false);
-                          setNewEmail('');
-                        }}
-                        className="flex-1 px-4 py-2 border border-gray-300 text-xs tracking-wider hover:bg-gray-50 transition"
-                      >
-                        <X className="w-3 h-3 inline mr-2" strokeWidth={1.5} />
-                        キャンセル / Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
 
               <div>
@@ -540,6 +447,18 @@ export default function MyAccount() {
                   </div>
                 ) : (
                   <div className="border border-gray-200 p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs tracking-wider text-gray-500 mb-2">
+                        現在のパスワード / Current Password
+                      </label>
+                      <input
+                        type="password"
+                        value={oldPassword}
+                        onChange={(e) => setOldPassword(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 text-sm focus:border-gray-900 focus:outline-none"
+                        placeholder="現在のパスワード / Current password"
+                      />
+                    </div>
                     <div>
                       <label className="block text-xs tracking-wider text-gray-500 mb-2">
                         新しいパスワード / New Password
@@ -576,6 +495,7 @@ export default function MyAccount() {
                       <button
                         onClick={() => {
                           setShowPasswordChange(false);
+                          setOldPassword('');
                           setNewPassword('');
                           setConfirmPassword('');
                         }}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Youtube, Mail, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
-import { supabase, Product, Styling } from '../lib/supabase';
+import { api, type Product, type Styling, getImageUrl } from '../lib/api-client';
 import { usePageTracking } from '../hooks/usePageTracking';
 
 export default function Home() {
@@ -121,14 +121,8 @@ function InformationSection() {
 
   async function loadFeaturedProducts() {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('featured', true)
-        .order('display_order', { ascending: true });
-
-      if (error) throw error;
-      if (data) setProducts(data);
+      const data = await api.products.list({ featured: true });
+      setProducts(data);
     } catch (error) {
       console.error('Error loading featured products:', error);
     } finally {
@@ -369,14 +363,9 @@ function StylingSection() {
 
   async function loadStyleings() {
     try {
-      const { data, error } = await supabase
-        .from('styling')
-        .select('*, styling_images(*)')
-        .order('display_order', { ascending: true })
-        .limit(5);
-
-      if (error) throw error;
-      if (data) setStyleings(data);
+      const data = await api.styling.list();
+      // 最初の5件のみ取得
+      setStyleings(data.slice(0, 5));
     } catch (error) {
       console.error('Error loading stylings:', error);
     } finally {

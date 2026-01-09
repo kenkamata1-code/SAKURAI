@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, Styling } from '../lib/supabase';
+import { api, Styling } from '../lib/api-client';
 import { Plus, Edit2, Trash2, X, ArrowUp, ArrowDown } from 'lucide-react';
 import ImageUpload from '../components/ImageUpload';
 
@@ -25,13 +25,8 @@ export default function StylingManagement() {
 
   async function loadStyleings() {
     try {
-      const { data, error } = await supabase
-        .from('styling')
-        .select('*, styling_images(*)')
-        .order('display_order', { ascending: true });
-
-      if (error) throw error;
-      if (data) setStyleings(data);
+      const data = await api.styling.list();
+      setStyleings(data);
     } catch (error) {
       console.error('Error loading stylings:', error);
     }
@@ -94,44 +89,26 @@ export default function StylingManagement() {
       let stylingId = editingStyling?.id;
 
       if (editingStyling) {
-        const { error } = await supabase
-          .from('styling')
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingStyling.id);
-
-        if (error) throw error;
+        await api.admin.updateStyling(editingStyling.id, formData);
       } else {
-        const { data: newStyling, error } = await supabase
-          .from('styling')
-          .insert([formData])
-          .select()
-          .single();
-
-        if (error) throw error;
+        const newStyling = await api.admin.createStyling(formData);
         stylingId = newStyling?.id;
       }
 
+      // 画像の更新
       if (stylingId) {
-        await supabase
-          .from('styling_images')
-          .delete()
-          .eq('styling_id', stylingId);
+        // 既存の画像を削除
+        const existingImages = await api.admin.listStylingImages(stylingId);
+        for (const img of existingImages) {
+          await api.admin.deleteStylingImage(img.id);
+        }
 
-        const imagesToInsert = additionalImages
-          .map((url, index) => ({
-            styling_id: stylingId,
-            url: url,
-            display_order: index + 1
-          }))
-          .filter(img => img.url.trim() !== '');
-
-        if (imagesToInsert.length > 0) {
-          await supabase
-            .from('styling_images')
-            .insert(imagesToInsert);
+        // 新しい画像を追加
+        for (let i = 0; i < additionalImages.length; i++) {
+          const url = additionalImages[i];
+          if (url.trim() !== '') {
+            await api.admin.createStylingImage(stylingId, { url, display_order: i + 1 });
+          }
         }
       }
 
@@ -148,12 +125,7 @@ export default function StylingManagement() {
     if (!confirm('本当に削除しますか?')) return;
 
     try {
-      const { error } = await supabase
-        .from('styling')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await api.admin.deleteStyling(id);
       alert('削除しました');
       loadStyleings();
     } catch (error) {
@@ -175,16 +147,8 @@ export default function StylingManagement() {
     const styling2 = stylings[newIndex];
 
     try {
-      await supabase
-        .from('styling')
-        .update({ display_order: styling2.display_order })
-        .eq('id', styling1.id);
-
-      await supabase
-        .from('styling')
-        .update({ display_order: styling1.display_order })
-        .eq('id', styling2.id);
-
+      await api.admin.updateStyling(styling1.id, { display_order: styling2.display_order });
+      await api.admin.updateStyling(styling2.id, { display_order: styling1.display_order });
       await loadStyleings();
     } catch (error) {
       console.error('Error moving styling:', error);

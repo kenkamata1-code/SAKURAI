@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, Styling } from '../lib/supabase';
+import { api, type Styling, getImageUrl } from '../lib/api-client';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePageTracking } from '../hooks/usePageTracking';
 
@@ -17,13 +17,8 @@ export default function StylingList() {
 
   async function loadStyleings() {
     try {
-      const { data, error } = await supabase
-        .from('styling')
-        .select('*, styling_images(*)')
-        .order('display_order', { ascending: true });
-
-      if (error) throw error;
-      if (data) setStyleings(data);
+      const data = await api.styling.list();
+      setStyleings(data);
     } catch (error) {
       console.error('Error loading stylings:', error);
     } finally {

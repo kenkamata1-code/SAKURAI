@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase, Styling } from '../lib/supabase';
+import { api, type Styling, getImageUrl } from '../lib/api-client';
 import { ArrowLeft } from 'lucide-react';
 
 export default function StylingDetail() {
@@ -11,43 +11,15 @@ export default function StylingDetail() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {
-    loadStyling();
-  }, [slug]);
-
-  async function trackStylingView(stylingId: string) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      let sessionId = localStorage.getItem('analytics_session_id');
-      if (!sessionId) {
-        sessionId = crypto.randomUUID();
-        localStorage.setItem('analytics_session_id', sessionId);
-      }
-
-      await supabase.from('styling_views').insert({
-        styling_id: stylingId,
-        user_id: user?.id || null,
-        session_id: sessionId,
-      });
-    } catch (error) {
-      console.error('Error tracking styling view:', error);
+    if (slug) {
+      loadStyling();
     }
-  }
+  }, [slug]);
 
   async function loadStyling() {
     try {
-      const { data, error } = await supabase
-        .from('styling')
-        .select('*, styling_images(*)')
-        .eq('slug', slug)
-        .maybeSingle();
-
-      if (error) throw error;
+      const data = await api.styling.get(slug!);
       setStyling(data);
-
-      if (data) {
-        trackStylingView(data.id);
-      }
     } catch (error) {
       console.error('Error loading styling:', error);
     } finally {

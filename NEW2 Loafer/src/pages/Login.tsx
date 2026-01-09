@@ -3,11 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { SignUpData } from '../contexts/AuthContext';
 import { Lock, ArrowLeft, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { resetPassword, confirmResetPassword } from 'aws-amplify/auth';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, confirmSignUpCode } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +24,14 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [resetStep, setResetStep] = useState<'email' | 'code'>('email');
+  const [resetCode, setResetCode] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  
+  // サインアップ確認コード用
+  const [showConfirmSignUp, setShowConfirmSignUp] = useState(false);
+  const [confirmCode, setConfirmCode] = useState('');
+  const [confirmEmail, setConfirmEmail] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,19 +49,45 @@ export default function Login() {
           gender,
           birthDate,
         };
-        await signUp(email, password, userInfo);
-        navigate('/');
+        const result = await signUp(email, password, userInfo);
+        
+        // 確認コードが必要な場合
+        if (result.nextStep.signUpStep === 'CONFIRM_SIGN_UP') {
+          setConfirmEmail(email);
+          setShowConfirmSignUp(true);
+        } else {
+          navigate('/');
+        }
       } else {
         await signIn(email, password);
         navigate('/');
       }
-    } catch (err) {
-      if (isSignUp) {
+    } catch (err: any) {
+      if (err.message === 'CONFIRM_SIGN_UP_REQUIRED') {
+        setConfirmEmail(email);
+        setShowConfirmSignUp(true);
+      } else if (isSignUp) {
         setError('登録に失敗しました。入力内容を確認してください。');
       } else {
         setError('ログインに失敗しました。メールアドレスとパスワードを確認してください。');
       }
       console.error('Auth error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  async function handleConfirmSignUp(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    
+    try {
+      await confirmSignUpCode(confirmEmail, confirmCode);
+      navigate('/');
+    } catch (err) {
+      setError('確認コードが正しくありません。');
+      console.error('Confirm error:', err);
     } finally {
       setLoading(false);
     }
@@ -65,20 +99,30 @@ export default function Login() {
     setResetLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/login`,
-      });
-
-      if (error) throw error;
-
-      setResetMessage('パスワードリセットのメールを送信しました。メールをご確認ください。');
-      setTimeout(() => {
-        setShowResetModal(false);
-        setResetEmail('');
-        setResetMessage('');
-      }, 3000);
+      if (resetStep === 'email') {
+        await resetPassword({ username: resetEmail });
+        setResetMessage('確認コードをメールで送信しました。');
+        setResetStep('code');
+      } else {
+        await confirmResetPassword({
+          username: resetEmail,
+          confirmationCode: resetCode,
+          newPassword: resetNewPassword,
+        });
+        setResetMessage('パスワードをリセットしました。新しいパスワードでログインしてください。');
+        setTimeout(() => {
+          setShowResetModal(false);
+          setResetEmail('');
+          setResetCode('');
+          setResetNewPassword('');
+          setResetMessage('');
+          setResetStep('email');
+        }, 3000);
+      }
     } catch (err) {
-      setResetMessage('メール送信に失敗しました。メールアドレスを確認してください。');
+      setResetMessage(resetStep === 'email' 
+        ? 'メール送信に失敗しました。メールアドレスを確認してください。'
+        : '確認コードが正しくないか、パスワードの要件を満たしていません。');
       console.error('Reset password error:', err);
     } finally {
       setResetLoading(false);
@@ -286,6 +330,59 @@ export default function Login() {
         </form>
       </div>
 
+      {showConfirmSignUp && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center px-6 z-50">
+          <div className="bg-white w-full max-w-md border border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-lg tracking-wider font-light">アカウント確認</h2>
+              <button
+                onClick={() => {
+                  setShowConfirmSignUp(false);
+                  setConfirmCode('');
+                }}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmSignUp} className="p-6">
+              {error && (
+                <div className="p-4 mb-4 border text-sm bg-red-50 border-red-200 text-red-600">
+                  {error}
+                </div>
+              )}
+
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                {confirmEmail} に送信された確認コードを入力してください。
+              </p>
+
+              <div className="mb-6">
+                <label className="block text-xs tracking-wider text-gray-600 mb-2 uppercase">
+                  確認コード / Confirmation Code
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={confirmCode}
+                  onChange={(e) => setConfirmCode(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 focus:border-gray-900 focus:outline-none text-sm"
+                  placeholder="123456"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-gray-900 text-white text-xs tracking-[0.2em] hover:bg-gray-800 transition disabled:opacity-50 uppercase"
+              >
+                {loading ? '確認中...' : '確認'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showResetModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center px-6 z-50">
           <div className="bg-white w-full max-w-md border border-gray-200">
@@ -295,7 +392,10 @@ export default function Login() {
                 onClick={() => {
                   setShowResetModal(false);
                   setResetEmail('');
+                  setResetCode('');
+                  setResetNewPassword('');
                   setResetMessage('');
+                  setResetStep('email');
                 }}
                 className="text-gray-400 hover:text-gray-600 transition"
               >
@@ -306,7 +406,7 @@ export default function Login() {
             <form onSubmit={handlePasswordReset} className="p-6">
               {resetMessage && (
                 <div className={`p-4 mb-4 border text-sm ${
-                  resetMessage.includes('送信しました')
+                  resetMessage.includes('送信しました') || resetMessage.includes('リセットしました')
                     ? 'bg-green-50 border-green-200 text-green-600'
                     : 'bg-red-50 border-red-200 text-red-600'
                 }`}>
@@ -314,31 +414,79 @@ export default function Login() {
                 </div>
               )}
 
-              <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                登録されているメールアドレスを入力してください。パスワードリセット用のリンクをお送りします。
-              </p>
+              {resetStep === 'email' ? (
+                <>
+                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                    登録されているメールアドレスを入力してください。確認コードをお送りします。
+                  </p>
 
-              <div className="mb-6">
-                <label className="block text-xs tracking-wider text-gray-600 mb-2 uppercase">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 focus:border-gray-900 focus:outline-none text-sm"
-                  placeholder="your@example.com"
-                />
-              </div>
+                  <div className="mb-6">
+                    <label className="block text-xs tracking-wider text-gray-600 mb-2 uppercase">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 focus:border-gray-900 focus:outline-none text-sm"
+                      placeholder="your@example.com"
+                    />
+                  </div>
 
-              <button
-                type="submit"
-                disabled={resetLoading}
-                className="w-full py-3 bg-gray-900 text-white text-xs tracking-[0.2em] hover:bg-gray-800 transition disabled:opacity-50 uppercase"
-              >
-                {resetLoading ? '送信中...' : 'リセットメールを送信'}
-              </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="w-full py-3 bg-gray-900 text-white text-xs tracking-[0.2em] hover:bg-gray-800 transition disabled:opacity-50 uppercase"
+                  >
+                    {resetLoading ? '送信中...' : '確認コードを送信'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                    {resetEmail} に送信された確認コードと新しいパスワードを入力してください。
+                  </p>
+
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="block text-xs tracking-wider text-gray-600 mb-2 uppercase">
+                        確認コード / Confirmation Code
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={resetCode}
+                        onChange={(e) => setResetCode(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 focus:border-gray-900 focus:outline-none text-sm"
+                        placeholder="123456"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs tracking-wider text-gray-600 mb-2 uppercase">
+                        新しいパスワード / New Password
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={resetNewPassword}
+                        onChange={(e) => setResetNewPassword(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 focus:border-gray-900 focus:outline-none text-sm"
+                        placeholder="6文字以上"
+                        minLength={6}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="w-full py-3 bg-gray-900 text-white text-xs tracking-[0.2em] hover:bg-gray-800 transition disabled:opacity-50 uppercase"
+                  >
+                    {resetLoading ? '更新中...' : 'パスワードを更新'}
+                  </button>
+                </>
+              )}
             </form>
           </div>
         </div>

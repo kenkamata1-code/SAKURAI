@@ -1,33 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { api, type Order } from '../lib/api-client';
 import { Package, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
 
-interface OrderItem {
-  id: string;
-  product_name: string;
-  product_price: number;
-  quantity: number;
-}
-
-interface Order {
-  id: string;
-  user_id: string;
-  total_amount: number;
-  status: string;
-  shipping_name: string;
-  shipping_postal_code: string;
-  shipping_address: string;
-  shipping_phone: string;
-  created_at: string;
-  updated_at: string;
-  user_email?: string;
-  order_items: OrderItem[];
-}
-
 export default function OrderManagement() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,44 +13,19 @@ export default function OrderManagement() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
   useEffect(() => {
-    if (!user || !isAdmin) {
-      navigate('/login');
-      return;
+    if (!authLoading) {
+      if (!user || !isAdmin) {
+        navigate('/login');
+        return;
+      }
+      fetchOrders();
     }
-    fetchOrders();
-  }, [user, isAdmin, navigate]);
+  }, [user, isAdmin, authLoading, navigate]);
 
   async function fetchOrders() {
     try {
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (ordersError) throw ordersError;
-
-      const ordersWithDetails = await Promise.all(
-        (ordersData || []).map(async (order) => {
-          const { data: itemsData } = await supabase
-            .from('order_items')
-            .select('*')
-            .eq('order_id', order.id);
-
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('email')
-            .eq('id', order.user_id)
-            .single();
-
-          return {
-            ...order,
-            order_items: itemsData || [],
-            user_email: profileData?.email || '不明',
-          };
-        })
-      );
-
-      setOrders(ordersWithDetails);
+      const ordersData = await api.admin.listOrders();
+      setOrders(ordersData);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -82,16 +35,7 @@ export default function OrderManagement() {
 
   async function updateOrderStatus(orderId: string, newStatus: string) {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orderId);
-
-      if (error) throw error;
-
+      await api.admin.updateOrderStatus(orderId, newStatus);
       await fetchOrders();
     } catch (error) {
       console.error('Error updating order status:', error);

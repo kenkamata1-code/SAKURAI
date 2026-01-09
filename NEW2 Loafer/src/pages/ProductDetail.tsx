@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase, Product } from '../lib/supabase';
+import { api, type Product, type ProductVariant, getImageUrl } from '../lib/api-client';
 import { ShoppingCart, ArrowLeft, Plus, Minus } from 'lucide-react';
-
-interface ProductVariant {
-  id: string;
-  size: string;
-  stock: number;
-  sku: string | null;
-}
+import { useAuth } from '../contexts/AuthContext';
 
 export default function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
@@ -22,55 +17,21 @@ export default function ProductDetail() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {
-    loadProduct();
-  }, [slug]);
-
-  async function trackProductView(productId: string) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      let sessionId = localStorage.getItem('analytics_session_id');
-      if (!sessionId) {
-        sessionId = crypto.randomUUID();
-        localStorage.setItem('analytics_session_id', sessionId);
-      }
-
-      await supabase.from('product_views').insert({
-        product_id: productId,
-        user_id: user?.id || null,
-        session_id: sessionId,
-      });
-    } catch (error) {
-      console.error('Error tracking product view:', error);
+    if (slug) {
+      loadProduct();
     }
-  }
+  }, [slug]);
 
   async function loadProduct() {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, product_images(*)')
-        .eq('slug', slug)
-        .maybeSingle();
-
-      if (error) throw error;
+      const data = await api.products.get(slug!);
       setProduct(data);
 
-      if (data) {
-        trackProductView(data.id);
-
-        const { data: variantsData } = await supabase
-          .from('product_variants')
-          .select('*')
-          .eq('product_id', data.id)
-          .order('size');
-
-        if (variantsData && variantsData.length > 0) {
-          setVariants(variantsData);
-          const firstAvailable = variantsData.find(v => v.stock > 0);
-          if (firstAvailable) {
-            setSelectedVariant(firstAvailable);
-          }
+      if (data && data.product_variants && data.product_variants.length > 0) {
+        setVariants(data.product_variants);
+        const firstAvailable = data.product_variants.find(v => v.stock > 0);
+        if (firstAvailable) {
+          setSelectedVariant(firstAvailable);
         }
       }
     } catch (error) {
@@ -91,58 +52,17 @@ export default function ProductDetail() {
       return;
     }
 
+    if (!user) {
+      alert('カートに追加するにはログインが必要です');
+      navigate('/login');
+      return;
+    }
+
+    if (!product) return;
+
     setAddingToCart(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        alert('カートに追加するにはログインが必要です');
-        return;
-      }
-
-      if (!product) return;
-
-      const { data: existingItem } = await supabase
-        .from('cart_items')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('product_id', product.id)
-        .eq('variant_id', selectedVariant.id)
-        .maybeSingle();
-
-      if (existingItem) {
-        await supabase
-          .from('cart_items')
-          .update({
-            quantity: existingItem.quantity + quantity,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingItem.id);
-      } else {
-        await supabase
-          .from('cart_items')
-          .insert({
-            user_id: user.id,
-            product_id: product.id,
-            variant_id: selectedVariant.id,
-            quantity
-          });
-      }
-
-      let sessionId = localStorage.getItem('analytics_session_id');
-      if (!sessionId) {
-        sessionId = crypto.randomUUID();
-        localStorage.setItem('analytics_session_id', sessionId);
-      }
-
-      await supabase.from('cart_additions').insert({
-        product_id: product.id,
-        variant_id: selectedVariant.id,
-        user_id: user.id,
-        session_id: sessionId,
-        quantity: quantity,
-      });
-
+      await api.cart.add(product.id, selectedVariant.id, quantity);
       alert('カートに追加しました');
       navigate('/cart');
     } catch (error) {

@@ -1,21 +1,9 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api, type Profile } from '../lib/api-client';
+import { apiConfig } from '../lib/aws-config';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import { Users, Shield, ShieldOff, Search, UserPlus, X, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
-
-interface Profile {
-  id: string;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
-  phone: string | null;
-  postal_code: string | null;
-  address: string | null;
-  gender: string | null;
-  birth_date: string | null;
-  is_admin: boolean;
-  created_at: string;
-}
 
 export default function AccountManagement() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -37,12 +25,22 @@ export default function AccountManagement() {
 
   async function fetchProfiles() {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (!token) {
+        throw new Error('認証が必要です');
+      }
 
-      if (error) throw error;
+      const response = await fetch(`${apiConfig.baseUrl}/admin/profiles`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch profiles');
+      
+      const data = await response.json();
       setProfiles(data || []);
     } catch (error) {
       console.error('Error fetching profiles:', error);
@@ -54,12 +52,23 @@ export default function AccountManagement() {
   async function toggleAdminStatus(profileId: string, currentStatus: boolean) {
     setUpdating(profileId);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_admin: !currentStatus })
-        .eq('id', profileId);
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (!token) {
+        throw new Error('認証が必要です');
+      }
 
-      if (error) throw error;
+      const response = await fetch(`${apiConfig.baseUrl}/admin/profiles/${profileId}/admin`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ is_admin: !currentStatus }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update admin status');
 
       setProfiles(profiles.map(p =>
         p.id === profileId ? { ...p, is_admin: !currentStatus } : p
@@ -80,27 +89,7 @@ export default function AccountManagement() {
 
     setCreating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        alert('認証が必要です');
-        return;
-      }
-
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newUser),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'ユーザーの作成に失敗しました');
-      }
+      await api.admin.createUser(newUser);
 
       alert('ユーザーを作成しました');
       setShowAddModal(false);

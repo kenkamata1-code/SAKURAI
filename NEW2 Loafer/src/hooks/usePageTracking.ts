@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiConfig } from '../lib/aws-config';
+import { fetchAuthSession } from 'aws-amplify/auth';
 
 let sessionId: string | null = null;
 
@@ -18,13 +19,31 @@ export function usePageTracking(pagePath: string, pageTitle: string) {
   useEffect(() => {
     const trackPageView = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        let userId: string | null = null;
+        
+        // 認証情報を取得（エラーは無視）
+        try {
+          const session = await fetchAuthSession();
+          if (session.tokens?.idToken) {
+            const payload = session.tokens.idToken.payload;
+            userId = payload.sub as string || null;
+          }
+        } catch {
+          // 未認証の場合はuserIdをnullのままにする
+        }
 
-        await supabase.from('page_views').insert({
-          page_path: pagePath,
-          page_title: pageTitle,
-          user_id: user?.id || null,
-          session_id: getSessionId(),
+        // ページビューをAPIに送信
+        await fetch(`${apiConfig.baseUrl}/page-views`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            page_path: pagePath,
+            page_title: pageTitle,
+            user_id: userId,
+            session_id: getSessionId(),
+          }),
         });
       } catch (error) {
         console.error('Error tracking page view:', error);

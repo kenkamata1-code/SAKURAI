@@ -1,0 +1,16 @@
+# Output files (contain sensitive information)
+output/*
+!output/.gitkeep
+
+# Lambda packages
+lambda/**/*.zip
+lambda/**/node_modules/
+
+# Temporary files
+*.tmp
+/tmp/
+
+# Credentials (never commit these)
+*-credentials.txt
+*-connection.txt
+

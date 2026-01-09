@@ -1,9 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+// AWS移行完了: Supabaseは使用しません
+// このファイルは型定義のみを提供します
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Supabaseが設定されているかどうかのフラグ（常にfalse）
+export const isSupabaseConfigured = false;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// ダミーのsupabaseオブジェクト（後方互換性のため）
+export const supabase = null;
 
 export interface Category {
   id: string;

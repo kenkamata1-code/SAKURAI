@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, Product, ProductImage } from '../lib/supabase';
+import { api, Product, ProductImage, ProductVariant } from '../lib/api-client';
 import { Plus, Edit2, Trash2, X, Package, ArrowUp, ArrowDown } from 'lucide-react';
 import ImageUpload from '../components/ImageUpload';
 
-interface ProductVariant {
+interface LocalProductVariant {
   id?: string;
   size: string;
   stock: number;
@@ -26,7 +26,7 @@ export default function ProductManagement() {
     featured: false
   });
   const [additionalImages, setAdditionalImages] = useState<string[]>(['', '', '', '', '']);
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [variants, setVariants] = useState<LocalProductVariant[]>([]);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [variantProduct, setVariantProduct] = useState<Product | null>(null);
 
@@ -35,12 +35,12 @@ export default function ProductManagement() {
   }, []);
 
   async function loadData() {
-    const { data: productsData } = await supabase
-      .from('products')
-      .select('*, product_images(*)')
-      .order('display_order', { ascending: true });
-
-    if (productsData) setProducts(productsData);
+    try {
+      const productsData = await api.products.list();
+      setProducts(productsData);
+    } catch (error) {
+      console.error('Error loading products:', error);
+    }
   }
 
   function openModal(product?: Product) {
@@ -97,44 +97,32 @@ export default function ProductManagement() {
       category: formData.category || null,
       stock: parseInt(formData.stock),
       featured: formData.featured,
-      updated_at: new Date().toISOString()
     };
 
     try {
       let productId = editingProduct?.id;
 
       if (editingProduct) {
-        await supabase
-          .from('products')
-          .update(productData)
-          .eq('id', editingProduct.id);
+        await api.admin.updateProduct(editingProduct.id, productData);
       } else {
-        const { data: newProduct } = await supabase
-          .from('products')
-          .insert(productData)
-          .select()
-          .single();
+        const newProduct = await api.admin.createProduct(productData);
         productId = newProduct?.id;
       }
 
+      // 画像の更新
       if (productId) {
-        await supabase
-          .from('product_images')
-          .delete()
-          .eq('product_id', productId);
+        // 既存の画像を削除
+        const existingImages = await api.admin.listProductImages(productId);
+        for (const img of existingImages) {
+          await api.admin.deleteProductImage(img.id);
+        }
 
-        const imagesToInsert = additionalImages
-          .map((url, index) => ({
-            product_id: productId,
-            url: url,
-            display_order: index + 1
-          }))
-          .filter(img => img.url.trim() !== '');
-
-        if (imagesToInsert.length > 0) {
-          await supabase
-            .from('product_images')
-            .insert(imagesToInsert);
+        // 新しい画像を追加
+        for (let i = 0; i < additionalImages.length; i++) {
+          const url = additionalImages[i];
+          if (url.trim() !== '') {
+            await api.admin.createProductImage(productId, { url, display_order: i + 1 });
+          }
         }
       }
 
@@ -151,7 +139,7 @@ export default function ProductManagement() {
     if (!confirm('本当に削除しますか？')) return;
 
     try {
-      await supabase.from('products').delete().eq('id', id);
+      await api.admin.deleteProduct(id);
       await loadData();
       alert('商品を削除しました');
     } catch (error) {
@@ -173,16 +161,8 @@ export default function ProductManagement() {
     const product2 = products[newIndex];
 
     try {
-      await supabase
-        .from('products')
-        .update({ display_order: product2.display_order })
-        .eq('id', product1.id);
-
-      await supabase
-        .from('products')
-        .update({ display_order: product1.display_order })
-        .eq('id', product2.id);
-
+      await api.admin.updateProduct(product1.id, { display_order: product2.display_order });
+      await api.admin.updateProduct(product2.id, { display_order: product1.display_order });
       await loadData();
     } catch (error) {
       console.error('Error moving product:', error);
@@ -193,13 +173,13 @@ export default function ProductManagement() {
   async function openVariantModal(product: Product) {
     setVariantProduct(product);
 
-    const { data } = await supabase
-      .from('product_variants')
-      .select('*')
-      .eq('product_id', product.id)
-      .order('size');
-
-    setVariants(data || []);
+    try {
+      const data = await api.admin.listProductVariants(product.id);
+      setVariants(data.map(v => ({ id: v.id, size: v.size, stock: v.stock, sku: v.sku || '' })));
+    } catch (error) {
+      console.error('Error loading variants:', error);
+      setVariants([]);
+    }
     setShowVariantModal(true);
   }
 
@@ -213,7 +193,7 @@ export default function ProductManagement() {
     setVariants([...variants, { size: '', stock: 0, sku: '' }]);
   }
 
-  function updateVariant(index: number, field: keyof ProductVariant, value: string | number) {
+  function updateVariant(index: number, field: keyof LocalProductVariant, value: string | number) {
     const updated = [...variants];
     updated[index] = { ...updated[index], [field]: value };
     setVariants(updated);
@@ -228,24 +208,21 @@ export default function ProductManagement() {
     if (!variantProduct) return;
 
     try {
-      await supabase
-        .from('product_variants')
-        .delete()
-        .eq('product_id', variantProduct.id);
+      // 既存のバリエーションを削除
+      const existingVariants = await api.admin.listProductVariants(variantProduct.id);
+      for (const v of existingVariants) {
+        await api.admin.deleteProductVariant(v.id);
+      }
 
-      const variantsToInsert = variants
-        .filter(v => v.size.trim() !== '')
-        .map(v => ({
-          product_id: variantProduct.id,
+      // 新しいバリエーションを追加
+      const variantsToInsert = variants.filter(v => v.size.trim() !== '');
+
+      for (const v of variantsToInsert) {
+        await api.admin.createProductVariant(variantProduct.id, {
           size: v.size,
           stock: v.stock,
-          sku: v.sku || null
-        }));
-
-      if (variantsToInsert.length > 0) {
-        await supabase
-          .from('product_variants')
-          .insert(variantsToInsert);
+          sku: v.sku || undefined
+        });
       }
 
       await loadData();

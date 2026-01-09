@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, Product } from '../lib/supabase';
+import { api, type Product, getImageUrl } from '../lib/api-client';
 import { ShoppingCart, Filter } from 'lucide-react';
 import { usePageTracking } from '../hooks/usePageTracking';
 
@@ -23,25 +23,13 @@ export default function Shop() {
 
   async function loadData() {
     try {
-      const { data: productsData } = await supabase
-        .from('products')
-        .select('*')
-        .order('display_order', { ascending: true });
-
-      if (productsData) {
-        const productsWithStock = await Promise.all(
-          productsData.map(async (product) => {
-            const { data: variants } = await supabase
-              .from('product_variants')
-              .select('stock')
-              .eq('product_id', product.id);
-
-            const totalStock = variants?.reduce((sum, v) => sum + v.stock, 0) || 0;
-            return { ...product, totalStock };
-          })
-        );
-        setProducts(productsWithStock);
-      }
+      const productsData = await api.products.list();
+      // 商品にバリアントの在庫合計を追加
+      const productsWithStock = productsData.map(product => {
+        const totalStock = product.product_variants?.reduce((sum, v) => sum + v.stock, 0) || 0;
+        return { ...product, totalStock };
+      });
+      setProducts(productsWithStock);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {

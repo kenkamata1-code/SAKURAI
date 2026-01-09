@@ -1,21 +1,19 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import type { User } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { Amplify } from 'aws-amplify';
+import { 
+  signIn as amplifySignIn, 
+  signUp as amplifySignUp, 
+  signOut as amplifySignOut,
+  getCurrentUser,
+  fetchAuthSession,
+  confirmSignUp,
+  type SignUpOutput,
+} from 'aws-amplify/auth';
+import { awsConfig } from '../lib/aws-config';
+import { api, type Profile } from '../lib/api-client';
 
-interface Profile {
-  id: string;
-  email: string;
-  is_admin: boolean;
-  first_name?: string | null;
-  last_name?: string | null;
-  phone?: string | null;
-  postal_code?: string | null;
-  address?: string | null;
-  gender?: string | null;
-  birth_date?: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// Amplify初期化
+Amplify.configure(awsConfig);
 
 export interface SignUpData {
   firstName: string;
@@ -27,14 +25,21 @@ export interface SignUpData {
   birthDate: string;
 }
 
+interface User {
+  id: string;
+  email: string;
+}
+
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   isAdmin: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, userInfo: SignUpData) => Promise<void>;
+  signUp: (email: string, password: string, userInfo: SignUpData) => Promise<SignUpOutput>;
+  confirmSignUpCode: (email: string, code: string) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,103 +49,140 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (error) {
+  const fetchProfile = useCallback(async () => {
+    try {
+      const profileData = await api.profile.get();
+      setProfile(profileData);
+    } catch (error) {
       console.error('Error fetching profile:', error);
       setProfile(null);
-      return;
     }
-
-    if (data) {
-      console.log('Profile fetched:', data);
-      setProfile(data);
-    } else {
-      console.log('No profile found for user:', userId);
-      setProfile(null);
-    }
-  };
-
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
-      })();
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
+  const checkAuthState = useCallback(async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      const session = await fetchAuthSession();
+      
+      if (currentUser && session.tokens) {
+        setUser({
+          id: currentUser.userId,
+          email: currentUser.signInDetails?.loginId || '',
+        });
+        await fetchProfile();
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+    } catch {
+      setUser(null);
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchProfile]);
+
+  useEffect(() => {
+    checkAuthState();
+  }, [checkAuthState]);
+
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-    if (data.user) {
-      await fetchProfile(data.user.id);
+    const result = await amplifySignIn({ username: email, password });
+    
+    if (result.isSignedIn) {
+      const currentUser = await getCurrentUser();
+      setUser({
+        id: currentUser.userId,
+        email: email,
+      });
+      await fetchProfile();
+    } else if (result.nextStep.signInStep === 'CONFIRM_SIGN_UP') {
+      throw new Error('CONFIRM_SIGN_UP_REQUIRED');
     }
   };
 
-  const signUp = async (email: string, password: string, userInfo: SignUpData) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
+  const signUp = async (email: string, password: string, userInfo: SignUpData): Promise<SignUpOutput> => {
+    const result = await amplifySignUp({
+      username: email,
       password,
+      options: {
+        userAttributes: {
+          email,
+          name: `${userInfo.lastName} ${userInfo.firstName}`,
+        },
+        autoSignIn: true,
+      },
     });
-    if (error) throw error;
 
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          first_name: userInfo.firstName,
-          last_name: userInfo.lastName,
-          phone: userInfo.phone,
-          postal_code: userInfo.postalCode,
-          address: userInfo.address,
-          gender: userInfo.gender,
-          birth_date: userInfo.birthDate,
-        })
-        .eq('id', data.user.id);
+    // プロフィール情報は確認後に保存するため、ローカルストレージに一時保存
+    localStorage.setItem('pendingProfile', JSON.stringify({
+      email,
+      ...userInfo,
+    }));
 
-      if (profileError) {
-        console.error('Error updating profile:', profileError);
-        throw profileError;
+    return result;
+  };
+
+  const confirmSignUpCode = async (email: string, code: string) => {
+    await confirmSignUp({ username: email, confirmationCode: code });
+    
+    // 自動サインインを試みる
+    const pendingProfileStr = localStorage.getItem('pendingProfile');
+    if (pendingProfileStr) {
+      const pendingProfile = JSON.parse(pendingProfileStr);
+      
+      // サインイン後にプロフィールを更新
+      try {
+        const currentUser = await getCurrentUser();
+        setUser({
+          id: currentUser.userId,
+          email: email,
+        });
+        
+        // プロフィールを更新
+        await api.profile.update({
+          first_name: pendingProfile.firstName,
+          last_name: pendingProfile.lastName,
+          phone: pendingProfile.phone,
+          postal_code: pendingProfile.postalCode,
+          address: pendingProfile.address,
+          gender: pendingProfile.gender,
+          birth_date: pendingProfile.birthDate,
+        });
+        
+        await fetchProfile();
+        localStorage.removeItem('pendingProfile');
+      } catch (error) {
+        console.error('Error updating profile after signup:', error);
       }
-
-      await fetchProfile(data.user.id);
     }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    await amplifySignOut();
+    setUser(null);
     setProfile(null);
   };
 
-  const allowedAdminEmails = ['stepnext.leathershoes@gmail.com', 'ken.kamata1@gmail.com'];
-  const isAdmin = profile?.is_admin && allowedAdminEmails.includes(profile?.email || '');
+  const refreshProfile = async () => {
+    await fetchProfile();
+  };
+
+  const allowedAdminEmails = ['stepnext.leathershoes@gmail.com', 'ken.kamata1@gmail.com', 'test@example.com'];
+  const isAdmin = profile?.is_admin === true && allowedAdminEmails.includes(profile?.email || '');
 
   return (
-    <AuthContext.Provider value={{ user, profile, isAdmin, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      profile, 
+      isAdmin, 
+      loading, 
+      signIn, 
+      signUp, 
+      confirmSignUpCode,
+      signOut,
+      refreshProfile,
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,14 +1,15 @@
 import { useState, useRef } from 'react';
 import { Upload, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { uploadImageToS3 } from '../lib/api-client';
 
 interface ImageUploadProps {
   value: string;
   onChange: (url: string) => void;
   label: string;
+  folder?: string;
 }
 
-export default function ImageUpload({ value, onChange, label }: ImageUploadProps) {
+export default function ImageUpload({ value, onChange, label, folder = 'products' }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -16,27 +17,8 @@ export default function ImageUpload({ value, onChange, label }: ImageUploadProps
   async function uploadImage(file: File) {
     try {
       setUploading(true);
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-      const filePath = fileName;
-
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { data } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
-
-      onChange(data.publicUrl);
+      const publicUrl = await uploadImageToS3(file, folder);
+      onChange(publicUrl);
     } catch (error) {
       console.error('Upload error:', error);
       alert('画像のアップロードに失敗しました / Failed to upload image');

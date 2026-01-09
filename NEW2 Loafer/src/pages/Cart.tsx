@@ -1,40 +1,31 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase, CartItem } from '../lib/supabase';
+import { api, type CartItem, getImageUrl } from '../lib/api-client';
 import { ShoppingCart, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
 import { usePageTracking } from '../hooks/usePageTracking';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Cart() {
   usePageTracking('/cart', 'Cart');
 
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  async function checkUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-
-    if (user) {
-      loadCart();
-    } else {
-      setLoading(false);
+    if (!authLoading) {
+      if (user) {
+        loadCart();
+      } else {
+        setLoading(false);
+      }
     }
-  }
+  }, [user, authLoading]);
 
   async function loadCart() {
     try {
-      const { data, error } = await supabase
-        .from('cart_items')
-        .select('*, products(*), product_variants(*)')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await api.cart.list();
       setCartItems(data || []);
     } catch (error) {
       console.error('Error loading cart:', error);
@@ -47,14 +38,7 @@ export default function Cart() {
     if (newQuantity < 1) return;
 
     try {
-      await supabase
-        .from('cart_items')
-        .update({
-          quantity: newQuantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
-
+      await api.cart.update(id, newQuantity);
       await loadCart();
     } catch (error) {
       console.error('Error updating quantity:', error);
@@ -63,7 +47,7 @@ export default function Cart() {
 
   async function removeItem(id: string) {
     try {
-      await supabase.from('cart_items').delete().eq('id', id);
+      await api.cart.remove(id);
       await loadCart();
     } catch (error) {
       console.error('Error removing item:', error);
