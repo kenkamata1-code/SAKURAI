@@ -59,6 +59,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const updatePendingProfileCallback = useCallback(async () => {
+    const pendingProfileStr = localStorage.getItem('pendingProfile');
+    if (pendingProfileStr) {
+      const pendingProfile = JSON.parse(pendingProfileStr);
+      
+      try {
+        await api.profile.update({
+          first_name: pendingProfile.firstName,
+          last_name: pendingProfile.lastName,
+          phone: pendingProfile.phone,
+          postal_code: pendingProfile.postalCode,
+          address: pendingProfile.address,
+          gender: pendingProfile.gender,
+          birth_date: pendingProfile.birthDate,
+        });
+        localStorage.removeItem('pendingProfile');
+        return true;
+      } catch (error) {
+        console.error('Error updating profile after signup:', error);
+        return false;
+      }
+    }
+    return false;
+  }, []);
+
   const checkAuthState = useCallback(async () => {
     try {
       const currentUser = await getCurrentUser();
@@ -69,6 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: currentUser.userId,
           email: currentUser.signInDetails?.loginId || '',
         });
+        // ペンディングプロフィールがあれば先に更新
+        await updatePendingProfileCallback();
         await fetchProfile();
       } else {
         setUser(null);
@@ -80,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [fetchProfile]);
+  }, [fetchProfile, updatePendingProfileCallback]);
 
   useEffect(() => {
     checkAuthState();
@@ -95,6 +122,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: currentUser.userId,
         email: email,
       });
+      await fetchProfile();
+      // ペンディングプロフィールがあれば更新
+      await updatePendingProfileCallback();
       await fetchProfile();
     } else if (result.nextStep.signInStep === 'CONFIRM_SIGN_UP') {
       throw new Error('CONFIRM_SIGN_UP_REQUIRED');
@@ -126,37 +156,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const confirmSignUpCode = async (email: string, code: string) => {
     await confirmSignUp({ username: email, confirmationCode: code });
     
-    // 自動サインインを試みる
-    const pendingProfileStr = localStorage.getItem('pendingProfile');
-    if (pendingProfileStr) {
-      const pendingProfile = JSON.parse(pendingProfileStr);
-      
-      // サインイン後にプロフィールを更新
-      try {
-        const currentUser = await getCurrentUser();
-        setUser({
-          id: currentUser.userId,
-          email: email,
-        });
-        
-        // プロフィールを更新
-        await api.profile.update({
-          first_name: pendingProfile.firstName,
-          last_name: pendingProfile.lastName,
-          phone: pendingProfile.phone,
-          postal_code: pendingProfile.postalCode,
-          address: pendingProfile.address,
-          gender: pendingProfile.gender,
-          birth_date: pendingProfile.birthDate,
-        });
-        
-        await fetchProfile();
-        localStorage.removeItem('pendingProfile');
-      } catch (error) {
-        console.error('Error updating profile after signup:', error);
-      }
-    }
+    // 確認後、プロフィール情報をローカルに保持（サインイン後に更新）
+    // autoSignInが動作するまで待つ
   };
+
 
   const signOut = async () => {
     await amplifySignOut();

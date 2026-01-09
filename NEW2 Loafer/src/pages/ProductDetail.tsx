@@ -149,7 +149,7 @@ export default function ProductDetail() {
                   {product.name}
                 </h1>
                 <p className="text-2xl text-gray-800">
-                  ¥{product.price.toLocaleString()}
+                  ¥{Math.floor(product.price).toLocaleString()}
                 </p>
               </div>
 

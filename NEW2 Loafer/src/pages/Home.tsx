@@ -186,7 +186,7 @@ function InformationSection() {
                   {product.name}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  ¥{product.price.toLocaleString()} (tax incl.)
+                  ¥{Math.floor(product.price).toLocaleString()} (tax incl.)
                 </p>
               </div>
             </Link>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, type Product, getImageUrl } from '../lib/api-client';
 import { ShoppingCart, Filter } from 'lucide-react';
 import { usePageTracking } from '../hooks/usePageTracking';
+import { formatPrice } from '../lib/format';
 
 type CategoryFilter = 'all' | 'shoes' | 'accessory';
 
@@ -125,7 +126,7 @@ export default function Shop() {
                       </p>
                       <div className="flex items-center justify-between pt-2">
                         <span className="text-sm text-gray-800">
-                          ¥{product.price.toLocaleString()}
+                          ¥{formatPrice(product.price)}
                         </span>
                         {product.totalStock > 0 ? (
                           <span className="text-xs text-green-600">在庫あり / In Stock</span>

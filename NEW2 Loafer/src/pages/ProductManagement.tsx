@@ -313,7 +313,7 @@ export default function ProductManagement() {
                       <td className="p-4 text-sm text-gray-600">
                         {product.category === 'shoes' ? 'Shoes' : product.category === 'accessory' ? 'Accessory' : '-'}
                       </td>
-                      <td className="p-4 text-sm text-gray-800">¥{product.price.toLocaleString()}</td>
+                      <td className="p-4 text-sm text-gray-800">¥{Math.floor(product.price).toLocaleString()}</td>
                       <td className="p-4 text-sm text-gray-800">
                         {product.product_variants && product.product_variants.length > 0
                           ? product.product_variants.reduce((sum, v) => sum + (v.stock || 0), 0)

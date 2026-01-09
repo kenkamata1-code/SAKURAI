@@ -4,6 +4,7 @@ import { api, type CartItem, getImageUrl } from '../lib/api-client';
 import { ShoppingCart, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
 import { usePageTracking } from '../hooks/usePageTracking';
 import { useAuth } from '../contexts/AuthContext';
+import { formatPrice } from '../lib/format';
 
 export default function Cart() {
   usePageTracking('/cart', 'Cart');
@@ -159,7 +160,7 @@ export default function Cart() {
                         </p>
                       )}
                       <p className="text-sm text-gray-600 mt-2">
-                        ¥{item.products?.price.toLocaleString()}
+                        ¥{formatPrice(item.products?.price)}
                       </p>
                     </div>
 
@@ -191,7 +192,7 @@ export default function Cart() {
 
                   <div className="text-right">
                     <p className="text-lg text-gray-800">
-                      ¥{((item.products?.price || 0) * item.quantity).toLocaleString()}
+                      ¥{formatPrice((item.products?.price || 0) * item.quantity)}
                     </p>
                   </div>
                 </div>
@@ -207,7 +208,7 @@ export default function Cart() {
                 <div className="space-y-3 border-b border-gray-200 pb-4 mb-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">小計</span>
-                    <span className="text-gray-800">¥{total.toLocaleString()}</span>
+                    <span className="text-gray-800">¥{formatPrice(total)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">配送料</span>
@@ -224,13 +225,13 @@ export default function Cart() {
                 <div className="flex justify-between text-lg mb-6">
                   <span className="text-gray-800">合計</span>
                   <span className="text-gray-800">
-                    ¥{(total + (total >= 10000 ? 0 : 800)).toLocaleString()}
+                    ¥{formatPrice(total + (total >= 10000 ? 0 : 800))}
                   </span>
                 </div>
 
                 {total < 10000 && (
                   <p className="text-xs text-gray-600 mb-6 leading-loose">
-                    あと¥{(10000 - total).toLocaleString()}で送料無料
+                    あと¥{formatPrice(10000 - total)}で送料無料
                   </p>
                 )}
 

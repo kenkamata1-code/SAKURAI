@@ -172,7 +172,7 @@ export default function OrderManagement() {
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 mb-1">合計金額</p>
-                        <p className="text-sm tracking-wider">¥{order.total_amount.toLocaleString()}</p>
+                        <p className="text-sm tracking-wider">¥{Math.floor(order.total_amount).toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 mb-1">ステータス</p>
@@ -208,7 +208,7 @@ export default function OrderManagement() {
                           {order.order_items.map((item) => (
                             <div key={item.id} className="flex justify-between text-sm">
                               <span>{item.product_name} × {item.quantity}</span>
-                              <span>¥{(item.product_price * item.quantity).toLocaleString()}</span>
+                              <span>¥{Math.floor(item.product_price * item.quantity).toLocaleString()}</span>
                             </div>
                           ))}
                         </div>

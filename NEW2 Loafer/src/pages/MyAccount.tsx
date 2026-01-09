@@ -377,7 +377,7 @@ export default function MyAccount() {
                             {item.product_name} × {item.quantity}
                           </span>
                           <span className="text-gray-800">
-                            ¥{item.product_price.toLocaleString()}
+                            ¥{Math.floor(item.product_price).toLocaleString()}
                           </span>
                         </div>
                       ))}
@@ -386,7 +386,7 @@ export default function MyAccount() {
                     <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
                       <span className="text-xs tracking-wider text-gray-500">合計金額 / Total</span>
                       <span className="text-lg font-medium text-gray-900">
-                        ¥{order.total_amount.toLocaleString()}
+                        ¥{Math.floor(order.total_amount).toLocaleString()}
                       </span>
                     </div>
                   </div>
