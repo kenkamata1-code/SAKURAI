@@ -116,9 +116,12 @@ export default function Cart() {
       <div className="pt-32 pb-20 px-6">
         <div className="max-w-[1400px] mx-auto">
           <div className="mb-12">
-            <h1 className="text-2xl md:text-3xl tracking-[0.3em] mb-3 font-light">
+            <h1 className="text-2xl md:text-3xl tracking-[0.3em] mb-1 font-light">
               SHOPPING CART
             </h1>
+            <p className="text-xs tracking-[0.15em] text-gray-500">
+              ショッピングカート
+            </p>
             <p className="text-xs tracking-[0.15em] text-gray-500">
               {cartItems.length}点の商品
             </p>

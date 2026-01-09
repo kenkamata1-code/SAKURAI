@@ -130,7 +130,7 @@ export default function Shop() {
                         {product.totalStock > 0 ? (
                           <span className="text-xs text-green-600">在庫あり / In Stock</span>
                         ) : (
-                          <span className="text-xs text-red-600">売り切れ</span>
+                          <span className="text-xs text-red-600">売り切れ / Sold Out</span>
                         )}
                       </div>
                     </div>

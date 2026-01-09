@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { api, type Profile } from '../lib/api-client';
 import { apiConfig } from '../lib/aws-config';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { Users, Shield, ShieldOff, Search, UserPlus, X, Download } from 'lucide-react';
+import { Users, Shield, ShieldOff, Search, UserPlus, X, Download, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function AccountManagement() {
@@ -78,6 +78,36 @@ export default function AccountManagement() {
       alert('管理者権限の変更に失敗しました');
     } finally {
       setUpdating(null);
+    }
+  }
+
+  async function deleteUser(profileId: string, email: string) {
+    if (!confirm(`${email} を削除してもよろしいですか？\nこの操作は取り消せません。`)) {
+      return;
+    }
+
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (!token) {
+        throw new Error('認証が必要です');
+      }
+
+      const response = await fetch(`${apiConfig.baseUrl}/admin/profiles/${profileId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to delete user');
+
+      setProfiles(profiles.filter(p => p.id !== profileId));
+      alert('ユーザーを削除しました');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('ユーザーの削除に失敗しました');
     }
   }
 
@@ -263,27 +293,37 @@ export default function AccountManagement() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => toggleAdminStatus(profile.id, profile.is_admin)}
-                          disabled={updating === profile.id}
-                          className={`inline-flex items-center gap-2 px-4 py-2 text-xs tracking-wider border transition disabled:opacity-50 ${
-                            profile.is_admin
-                              ? 'border-red-300 text-red-700 hover:bg-red-50'
-                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {profile.is_admin ? (
-                            <>
-                              <ShieldOff className="w-3 h-3" strokeWidth={1.5} />
-                              管理者権限を解除
-                            </>
-                          ) : (
-                            <>
-                              <Shield className="w-3 h-3" strokeWidth={1.5} />
-                              管理者権限を付与
-                            </>
-                          )}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => toggleAdminStatus(profile.id, profile.is_admin)}
+                            disabled={updating === profile.id}
+                            className={`inline-flex items-center gap-2 px-4 py-2 text-xs tracking-wider border transition disabled:opacity-50 ${
+                              profile.is_admin
+                                ? 'border-red-300 text-red-700 hover:bg-red-50'
+                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {profile.is_admin ? (
+                              <>
+                                <ShieldOff className="w-3 h-3" strokeWidth={1.5} />
+                                管理者権限を解除
+                              </>
+                            ) : (
+                              <>
+                                <Shield className="w-3 h-3" strokeWidth={1.5} />
+                                管理者権限を付与
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => deleteUser(profile.id, profile.email)}
+                            className="inline-flex items-center gap-2 px-4 py-2 text-xs tracking-wider border border-red-300 text-red-700 hover:bg-red-50 transition"
+                            title="ユーザーを削除"
+                          >
+                            <Trash2 className="w-3 h-3" strokeWidth={1.5} />
+                            削除
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

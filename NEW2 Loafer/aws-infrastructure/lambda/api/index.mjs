@@ -171,8 +171,8 @@ export const handler = async (event) => {
       return response(200, result.rows);
     }
 
-    if (path.match(/^\/v1\/products\/[\w-]+$/) && method === "GET") {
-      const slug = path.split("/").pop();
+    if (path.match(/^\/v1\/products\/[^\/]+$/) && method === "GET") {
+      const slugOrName = decodeURIComponent(path.split("/").pop());
       const result = await db.query(`
         SELECT p.*, 
           json_agg(DISTINCT jsonb_build_object(
@@ -186,9 +186,9 @@ export const handler = async (event) => {
         FROM products p
         LEFT JOIN product_images pi ON p.id = pi.product_id
         LEFT JOIN product_variants pv ON p.id = pv.product_id
-        WHERE p.slug = $1
+        WHERE p.slug = $1 OR p.name = $1 OR p.id::text = $1
         GROUP BY p.id
-      `, [slug]);
+      `, [slugOrName]);
       if (result.rows.length === 0) return response(404, { error: "Product not found" });
       return response(200, result.rows[0]);
     }
@@ -778,6 +778,25 @@ export const handler = async (event) => {
       return response(200, result.rows[0]);
     }
 
+    // ==================== ユーザー削除 ====================
+    if (path.match(/^\/v1\/admin\/profiles\/[\w-]+$/) && method === "DELETE") {
+      if (!userId || !(await isAdmin(db, userId))) {
+        return response(403, { error: "管理者権限が必要です" });
+      }
+      
+      const id = path.split("/")[4];
+      
+      // 自分自身は削除できない
+      const profile = await db.query("SELECT cognito_user_id FROM profiles WHERE id = $1", [id]);
+      if (profile.rows.length > 0 && profile.rows[0].cognito_user_id === userId) {
+        return response(400, { error: "自分自身は削除できません" });
+      }
+      
+      const result = await db.query("DELETE FROM profiles WHERE id = $1 RETURNING *", [id]);
+      if (result.rows.length === 0) return response(404, { error: "Profile not found" });
+      return response(200, { message: "User deleted successfully" });
+    }
+
     // ==================== S3 署名付きURL生成 ====================
     if (path === "/v1/admin/upload-url" && method === "POST") {
       if (!userId || !(await isAdmin(db, userId))) {
@@ -805,7 +824,8 @@ export const handler = async (event) => {
         });
         
         const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-        const publicUrl = `https://${S3_BUCKET}.s3.ap-northeast-1.amazonaws.com/${key}`;
+        const CLOUDFRONT_DOMAIN = process.env.CLOUDFRONT_DOMAIN || "d8l6v2r98r1en.cloudfront.net";
+        const publicUrl = `https://${CLOUDFRONT_DOMAIN}/${key}`;
         
         return response(200, {
           uploadUrl,
