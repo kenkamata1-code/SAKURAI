@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, type Styling, getImageUrl } from '../lib/api-client';
 import { ArrowLeft } from 'lucide-react';
+import { usePageTracking } from '../hooks/usePageTracking';
 
 export default function StylingDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -9,6 +10,9 @@ export default function StylingDetail() {
   const [styling, setStyling] = useState<Styling | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  // ページビュートラッキング
+  usePageTracking(`/styling/${slug}`, styling?.title || 'スタイリング詳細');
 
   useEffect(() => {
     if (slug) {
