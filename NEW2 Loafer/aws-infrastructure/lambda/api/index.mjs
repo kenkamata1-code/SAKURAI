@@ -1025,6 +1025,9 @@ export const handler = async (event) => {
         return response(401, { error: "認証が必要です" });
       }
 
+      // ユーザーのメールアドレスを取得
+      const userEmail = getUserEmail(event);
+
       // カートから商品情報を取得
       const cartResult = await db.query(`
         SELECT ci.*, p.name as product_name, p.price, p.image_url, pv.size as variant_size
