@@ -60,16 +60,25 @@ function ConceptSection() {
           <div className="lg:col-span-2 space-y-8">
             <div className="space-y-6 text-sm leading-loose">
               <h3 className="text-2xl md:text-3xl leading-relaxed font-light text-gray-800">
-                少しの背伸びで、<br />
-                明日が変わるローファー。
+                毎日の装いに、<br />
+                最も合理的な一足。
               </h3>
               <p className="text-gray-600">
-                上質な素材と、端正なシルエット。<br />
-                そして、日常でこそ実感できる履き心地。<br />
-                一つひとつに理由のある「良いもの」を選び抜きながら、特別な日のためではなく、日常の延長線で、無理なく履ける一足を目指しました。
+                上質な素材と、端正なシルエット。
               </p>
               <p className="text-gray-600">
-                誇張せず、主張しすぎず。<br />
+                すべては、日常遣いを前提に、所有する満足感と、使う実感のどちらも満たす革靴とは何か。その問いから、この一足は生まれました。
+              </p>
+              <p className="text-gray-600">
+                特別な日のためではなく、日常の延長線で、無理なく履けること。だからこそ、履くほどに実感できる履き心地があります。
+              </p>
+              <p className="text-gray-600">
+                一つひとつに理由のある「良いもの」を選び抜きながら、誇張せず、主張しすぎない佇まいを大切にしました。
+              </p>
+              <p className="text-gray-600">
+                それが、長く履き続けたいという気持ちを生むと考えています。
+              </p>
+              <p className="text-gray-600">
                 それでも確かに、「いつもより良い」と感じられること。<br />
                 それが、この一足の目指した価値です。
               </p>
@@ -77,14 +86,14 @@ function ConceptSection() {
 
             <div className="space-y-4 text-xs leading-loose text-gray-500 pt-6 border-t border-gray-200">
               <h4 className="text-xl font-light">
-                Loafers that change tomorrow<br />
-                with a little extra effort.
+                The most rational choice<br />
+                for your daily attire.
               </h4>
               <p>
-                Premium materials and refined silhouettes. Comfort you feel in everyday life. While selecting quality items with purpose, we aimed for shoes you can wear comfortably as an extension of daily life, not just for special occasions.
+                Premium materials and refined silhouettes. This shoe was born from a single question: what makes a leather shoe that satisfies both the pride of ownership and the reality of daily use?
               </p>
               <p>
-                Not exaggerated, not overstated. Yet unmistakably "better than usual." That's the value we aimed for with these shoes.
+                Not for special occasions, but as a natural extension of everyday life—shoes you can wear effortlessly. That's why the comfort becomes more apparent the more you wear them.
               </p>
             </div>
           </div>
@@ -213,8 +222,8 @@ function BrandSection() {
       label: 'QUALITY',
       tagline: 'イルチアスエードが叶える、\n上質な佇まいと"簡単メンテナンス"',
       taglineEn: 'Premium presence and easy maintenance with Ilcea suede',
-      description: '世界トップブランドも採用するイタリア・イルチア社の最高級スエード。\nしっとりとした質感と奥行きのある発色が、足元から装いを静かに格上げします。\n撥水性が高く、汚れもブラッシングで手軽にケアできるため、驚くほど扱いやすいのも特徴です。\n「高級素材＝デリケート」というイメージを覆す、日常に寄り添う実用性を備えています。',
-      descriptionEn: 'Italy\'s finest suede from Ilcea, trusted by world\'s top luxury brands. Its supple texture and rich depth of color quietly elevate your outfit from the ground up. With excellent water resistance and easy care through simple brushing, it\'s surprisingly practical. Defying the "luxury material = delicate" stereotype, it offers durability that supports your daily life.',
+      description: '世界トップブランドも採用するイタリア・イルチア社の最高級スエード。確かな質感と奥行きのある発色が、足元から装いを静かに格上げします。\n\n撥水性が高く、汚れもブラッシングで手軽にケアできるため、驚くほど扱いやすいのも特徴です。\n\n「高級素材＝デリケート」というイメージを覆す、日常に寄り添う実用性を備えています。',
+      descriptionEn: 'Italy\'s finest suede from Ilcea, trusted by world\'s top luxury brands. Its assured texture and rich depth of color quietly elevate your outfit from the ground up. With excellent water resistance and easy care through simple brushing, it\'s surprisingly practical. Defying the "luxury material = delicate" stereotype, it offers practicality that supports your daily life.',
       image: 'dark',
     },
     {
@@ -222,26 +231,26 @@ function BrandSection() {
       label: 'DESIGN',
       tagline: 'トップブランド研究から生まれた、\n日本人のためのラスト',
       taglineEn: 'A last for Japanese feet, born from top brand research',
-      description: 'ただ細いだけ、ただシャープなだけでは、本当に美しいローファーにはなりません。\nトップブランドのシルエットを徹底的に研究し、日本人の足型で最もバランスよく見えるラインを追求しました。\n履いた瞬間に感じる安定感と、鏡に映ったときのかっこよさ。\n日常で履くからこそ、違いがわかるラストです。',
+      description: 'ただ細いだけ、ただシャープなだけでは、本当に美しいローファーにはなりません。\n\nトップブランドのシルエットを徹底的に研究し、日本人の足型で最もバランスよく見えるラインを追求しました。\n\n履いた瞬間に感じる安定感と、鏡に映ったときのかっこよさ。日常で履くからこそ、違いがわかるラストです。',
       descriptionEn: 'Just slim, just sharp alone doesn\'t make truly beautiful loafers. Through thorough research of top brand silhouettes, we pursued lines that appear most balanced on Japanese feet. Stability felt the moment you wear them, and natural elegance when reflected in the mirror. It\'s a last where the difference becomes clear through daily wear.',
       image: 'design',
     },
     {
       name: '03',
       label: 'PRICE',
-      tagline: '背伸びしすぎないための、\n現実的な価格設計',
-      taglineEn: 'Realistic pricing without overreaching',
-      description: '上質な素材とシルエットを備えながら、この価格に収めることができたのには理由があります。\n製法やコスト構造を一から見直し、小規模事業者だからこそできる選択を積み重ねました。\n「本格的な靴は高いもの」という固定観念を少しだけ崩し、無理なく手に取り、日常で使い続けられる一足へ。\nこれは妥協ではなく、賢く選んだ結果です。',
-      descriptionEn: 'There\'s a reason we could achieve this price while maintaining premium materials and silhouettes. We reviewed production methods and cost structures from scratch, making choices only small businesses can make. Gently challenging the notion that "genuine shoes must be expensive," we created shoes you can afford and continue wearing daily. This isn\'t compromise—it\'s a smart choice.',
+      tagline: '現実的な価格設計',
+      taglineEn: 'Realistic pricing',
+      description: '上質な素材とシルエットを備えながら、この価格に収めることができたのには理由があります。\n\n製法やコスト構造を一から見直し、小規模事業者だからこそできる選択を積み重ねました。\n\n「本格的な靴は高いもの」という固定観念を少しだけ崩し、無理なく手に取り、日常で使い続けられる一足へ。\n\nこれは妥協ではなく、賢く選んだ結果です。「足元こそ、おしゃれに。」その想いを実現するために、細部までこだわりました。',
+      descriptionEn: 'There\'s a reason we could achieve this price while maintaining premium materials and silhouettes. We reviewed production methods and cost structures from scratch, making choices only small businesses can make. This isn\'t compromise—it\'s a smart choice. To realize our belief that "style starts from the ground up," we paid attention to every detail.',
       image: 'light',
     },
     {
       name: '04',
-      label: 'DURABILITY',
-      tagline: '雨にも長時間にも強い、\n安心して履ける設計',
-      taglineEn: 'Rain-proof, enduring design you can rely on',
-      description: '上質な一足であることと、「気兼ねなく履ける」ことは、どちらも同じくらい大切だと考えました。\n雨の日でも安心して歩けるオリジナルのラバーソールに、衝撃をやわらげるEVAクッションとスポンジ加工を組み合わせ、長時間の移動や立ち仕事でも負担を感じにくい履き心地を実現。\n仕事の日も、休日も、そして突然の予定変更のときも「今日はこれでいい」と迷わず手に取れる一足でありたいと思っています。',
-      descriptionEn: 'We believe being premium and "worry-free to wear" are equally important. With our original rubber sole that handles rainy days confidently, combined with shock-absorbing EVA cushioning and sponge processing, we achieved comfort that reduces strain during long commutes or standing work. Regardless of weather or occasion—work days, weekends, or sudden plan changes—we want to be reliable shoes you reach for without hesitation, thinking "these are perfect for today."',
+      label: 'VERSATILITY',
+      tagline: '迷わず履ける、その理由。',
+      taglineEn: 'Designed to be your go-to choice',
+      description: '上質であること。そして、気兼ねなく履けること。その両立を、私たちは最優先に考えました。\n\nスラックスにもデニムにも自然に馴染み、仕事の日も休日も、装いを選ばない一足であること。そのために、モカ縫いの表情やコインスロットの輪郭、幅感に至るまで、バランスを徹底的に検証しています。\n\n雨の日でも安心して歩けるオリジナルのラバーソールに、EVAクッションとスポンジ加工を組み合わせ、長時間の移動でも負担を感じにくい履き心地を実現しました。\n\n仕事の日も、休日も。「今日はこれでいい」と、迷わず手に取れる一足。その答えが、この設計です。',
+      descriptionEn: 'Being premium yet worry-free to wear. We prioritized achieving both. Shoes that naturally complement both slacks and denim, suitable for work days and weekends alike. We meticulously examined every detail—the moc toe stitching, coin slot contours, and width balance. With our original rubber sole for rainy days, combined with EVA cushioning and sponge processing, we achieved comfort that lasts through long hours. Work or weekend, these are shoes you reach for without hesitation.',
       image: 'sole',
     },
   ];
@@ -341,7 +350,7 @@ function BrandSection() {
 
         <div className="text-center mt-20">
           <Link
-            to="/about#our-approach"
+            to="/details"
             className="inline-block px-20 py-4 border border-gray-900 text-xs tracking-[0.2em] hover:bg-gray-900 hover:text-white transition-all duration-300 uppercase"
           >
             View More

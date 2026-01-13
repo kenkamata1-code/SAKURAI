@@ -13,6 +13,7 @@ import StylingManagement from './pages/StylingManagement';
 import Cart from './pages/Cart';
 import CheckoutSuccess from './pages/CheckoutSuccess';
 import About from './pages/About';
+import Details from './pages/Details';
 import Contact from './pages/Contact';
 import Login from './pages/Login';
 import MyAccount from './pages/MyAccount';
@@ -94,6 +95,7 @@ function App() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout/success" element={<CheckoutSuccess />} />
         <Route path="/about" element={<About />} />
+        <Route path="/details" element={<Details />} />
         <Route path="/contact" element={<Contact />} />
       </Routes>
       {!isLoginPage && <Footer />}
