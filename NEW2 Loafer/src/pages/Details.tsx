@@ -6,51 +6,48 @@ export default function Details() {
   const designPhilosophies = [
     {
       number: '01',
-      title: '日常で選ばれる、合理的なローファー設計',
-      titleEn: 'Rational loafer design chosen for daily use',
-      description: '主張しすぎないコインローファーの佇まいを軸に、仕事にも休日にも自然に馴染むことを前提に設計しています。',
-      descriptionEn: 'Centered on the understated presence of a coin loafer, designed to naturally fit both work and weekends.',
+      label: 'DESIGN',
+      title: 'モカ縫いとステッチ、そしてシルエット',
+      titleEn: 'Moc stitching, stitching, and silhouette',
+      description: '主張を抑えたモカ縫いを採用し、縫い幅や縫い位置はもちろん、コインスロットの形状やサイズに至るまで、意匠が強くなりすぎないようミリ単位で調整しました。こうした積み重ねが、何年履いても飽きのこない佇まいにつながっています。',
+      descriptionEn: 'We adopted understated moc stitching and adjusted every detail down to the millimeter—from stitch width and position to the shape and size of the coin slot—to ensure the design never becomes too bold. This accumulation of details creates a timeless appearance.',
       image: '/details-01.jpg',
     },
     {
       number: '02',
-      title: '軽快さと端正さを両立するモカ縫いとシルエット',
-      titleEn: 'Moc stitching and silhouette balancing lightness and refinement',
-      description: '重厚になりすぎないモカ縫いの表情と、縫い位置を内寄りにした設計により、足先が大きく見えない、すっきりとした印象を実現しました。',
-      descriptionEn: 'With moc stitching that avoids being too heavy and inward-positioned seams, we achieved a clean impression that doesn\'t make your feet look large.',
+      label: 'FIT',
+      title: '日本人に合う設計、幅、踵のホールド感',
+      titleEn: 'Design, width, and heel hold suited for Japanese feet',
+      description: 'ローファー選びにおいて、フィット感は最も重要な要素のひとつです。多様な足型に自然に馴染むよう、アジアに多い小さな踵を前提に、木型からヒールカップの形状を設計しました。見た目では語られにくい部分ですが、履いた瞬間の安心感に確かな違いが生まれます。',
+      descriptionEn: 'Fit is one of the most important factors when choosing loafers. We designed the heel cup shape from the last, assuming the smaller heels common in Asia. Though difficult to see, this creates a noticeable difference in comfort the moment you put them on.',
       image: '/details-02.jpg',
     },
     {
       number: '03',
-      title: '日本人の足に合う幅感と安定感',
-      titleEn: 'Width and stability suited for Japanese feet',
-      description: '細さだけを追求せず、外側のラインで包み込むように設計。見た目の美しさと、履いたときの安定感を両立しています。',
-      descriptionEn: 'Rather than just pursuing slimness, we designed the outer lines to wrap around the foot. Achieving both visual beauty and stability when worn.',
+      label: 'CONSTRUCTION',
+      title: '初日からの履きなじみを重視した製法',
+      titleEn: 'Construction prioritizing comfort from day one',
+      description: '無理なく、たくさん履いてほしい。その思いから、革靴特有の「慣らし」にかかる時間を極力減らすため、セメント製法を採用しました。武骨になりすぎない中庸な表情が、日常のさまざまなシーンでの登板機会を広げます。',
+      descriptionEn: 'We want you to wear them often, without strain. With this in mind, we adopted cement construction to minimize the break-in time typical of leather shoes. The balanced, refined appearance opens up opportunities for daily wear across various occasions.',
       image: '/details-03.jpg',
     },
     {
       number: '04',
-      title: '後ろ姿まで考えた、無駄のない縫製',
-      titleEn: 'Streamlined stitching, designed from every angle',
-      description: 'トップラインからヒールまで一体感のある仕上げとし、装飾を抑えたクリーンなバックスタイルに。長く履いても印象が古くなりません。',
-      descriptionEn: 'With cohesive finishing from top line to heel and minimal decoration for a clean back style. The impression stays fresh even after long wear.',
+      label: 'DURABILITY',
+      title: '気兼ねなく履ける、雨対応ソール設計',
+      titleEn: 'Rain-ready sole design for worry-free wear',
+      description: '日本をはじめ、アジアの気候には急な雨がつきものです。天候を気にせず革靴を履いてもらうため、ソールにはラバー素材を選択。見た目が重くならないよう、革底に引けを取らない厚みとバランスにも配慮しています。',
+      descriptionEn: 'Sudden rain is common in Asian climates, including Japan. To allow worry-free wear regardless of weather, we chose rubber soles. We also carefully considered thickness and balance to match leather soles without looking heavy.',
       image: '/details-04.jpg',
     },
     {
       number: '05',
-      title: '気兼ねなく履ける、雨対応ソール設計',
-      titleEn: 'Rain-ready sole design for worry-free wear',
-      description: 'グリップ力と耐久性を考慮したラバーソールを採用。天候を気にせず、日常の移動に対応します。',
-      descriptionEn: 'Rubber soles designed for grip and durability. Ready for daily commutes regardless of weather.',
-      image: '/details-05.jpg',
-    },
-    {
-      number: '06',
+      label: 'COMFORT',
       title: '長時間を想定したクッション構造',
       titleEn: 'Cushion structure designed for long hours',
-      description: '中底にクッション材を組み込み、その上にレザーを重ねることで、長時間の移動や立ち仕事でも負担を感じにくい履き心地を実現しました。',
-      descriptionEn: 'With cushion material built into the midsole and leather layered on top, we achieved comfort that reduces strain during long hours of travel or standing work.',
-      image: '/details-06.jpg',
+      description: 'セメント製法特有のダイレクトな地面からの反発を和らげるため、内部構造にクッション性を持たせ、快適さに丁寧に向き合いました。長時間履いたときにこそ、違いを感じてもらえる設計です。',
+      descriptionEn: 'To soften the direct ground feedback characteristic of cement construction, we incorporated cushioning into the internal structure, carefully addressing comfort. This design makes a noticeable difference during extended wear.',
+      image: '/details-05.jpg',
     },
   ];
 
@@ -106,8 +103,18 @@ export default function Details() {
             DESIGN PHILOSOPHY
           </h1>
           <p className="text-xs tracking-[0.15em] text-gray-500 mb-8">
-            日常を前提にした、6つの設計思想 / Six Design Principles for Daily Use
+            日常使いで選びたいと思わせる５つの設計思想 / Five Design Principles for Daily Use
           </p>
+          <div className="max-w-2xl mx-auto">
+            <p className="text-sm text-gray-600 leading-loose mb-4">
+              シュークロークを圧迫しない。仕事にも、休日にも自然に馴染む。<br />
+              そうした一足とは何かを考え続け、たどり着いたのがコインローファーでした。
+            </p>
+            <p className="text-sm text-gray-600 leading-loose">
+              セットアップ、ジャケパン、デニム、そしてショーツまで。<br />
+              日々の装いに無理なく寄り添うデザインに仕上げています。
+            </p>
+          </div>
         </div>
       </section>
 
@@ -133,10 +140,10 @@ export default function Details() {
                 <div className={`space-y-6 ${index % 2 === 1 ? 'lg:order-1' : ''}`}>
                   <div>
                     <p className="text-[10px] tracking-[0.3em] text-gray-400 mb-2">
-                      PHILOSOPHY {item.number}
+                      {item.number}. {item.label}
                     </p>
                     <h3 className="text-xl md:text-2xl font-light leading-relaxed text-gray-800">
-                      {item.title}
+                      {item.label}｜{item.title}
                     </h3>
                   </div>
 
