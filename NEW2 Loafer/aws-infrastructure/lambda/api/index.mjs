@@ -52,6 +52,7 @@ const getRequestInfo = (event) => {
       method: event.requestContext?.http?.method || "GET",
       body: event.body,
       queryParams: event.queryStringParameters || {},
+      headers: event.headers || {},
     };
   }
   
@@ -61,6 +62,7 @@ const getRequestInfo = (event) => {
     method: event.httpMethod || "GET",
     body: event.body,
     queryParams: event.queryStringParameters || {},
+    headers: event.headers || {},
   };
 };
 
@@ -117,7 +119,7 @@ const isAdmin = async (db, userId) => {
 };
 
 export const handler = async (event) => {
-  const { path, method, body, queryParams } = getRequestInfo(event);
+  const { path, method, body, queryParams, headers } = getRequestInfo(event);
   
   // OPTIONS リクエスト（CORS preflight）
   if (method === "OPTIONS") {
@@ -1041,7 +1043,7 @@ export const handler = async (event) => {
         return response(400, { error: "カートが空です" });
       }
 
-      // Stripeのline_itemsを作成
+      // Stripeのline_itemsを作成（unit_amountは整数である必要がある）
       const lineItems = cartResult.rows.map(item => ({
         price_data: {
           currency: 'jpy',
@@ -1050,7 +1052,7 @@ export const handler = async (event) => {
             description: item.variant_size ? `サイズ: ${item.variant_size}` : undefined,
             images: item.image_url ? [item.image_url] : undefined,
           },
-          unit_amount: item.price,
+          unit_amount: Math.round(parseFloat(item.price)),
         },
         quantity: item.quantity,
       }));

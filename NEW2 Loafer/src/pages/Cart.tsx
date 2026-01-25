@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, type CartItem, getImageUrl } from '../lib/api-client';
 import { ShoppingCart, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
 import { usePageTracking } from '../hooks/usePageTracking';
 import { useAuth } from '../contexts/AuthContext';
 import { formatPrice } from '../lib/format';
+import { trackViewCart, trackRemoveFromCart, trackBeginCheckout } from '../lib/gtm';
 
 export default function Cart() {
   usePageTracking('/cart', 'Cart');
@@ -14,6 +15,7 @@ export default function Cart() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const hasTrackedViewCart = useRef(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -24,6 +26,20 @@ export default function Cart() {
       }
     }
   }, [user, authLoading]);
+
+  // カートが読み込まれたらGA4にトラッキング
+  useEffect(() => {
+    if (cartItems.length > 0 && !hasTrackedViewCart.current) {
+      hasTrackedViewCart.current = true;
+      trackViewCart(cartItems.map(item => ({
+        item_id: item.product_id,
+        item_name: item.products?.name || '',
+        item_variant: item.product_variants?.size,
+        price: item.products?.price || 0,
+        quantity: item.quantity,
+      })));
+    }
+  }, [cartItems]);
 
   async function loadCart() {
     try {
@@ -38,6 +54,15 @@ export default function Cart() {
 
   async function handleCheckout() {
     if (cartItems.length === 0) return;
+    
+    // GA4 チェックアウト開始トラッキング
+    trackBeginCheckout(cartItems.map(item => ({
+      item_id: item.product_id,
+      item_name: item.products?.name || '',
+      item_variant: item.product_variants?.size,
+      price: item.products?.price || 0,
+      quantity: item.quantity,
+    })));
     
     setCheckoutLoading(true);
     try {
@@ -64,8 +89,22 @@ export default function Cart() {
   }
 
   async function removeItem(id: string) {
+    // 削除前にトラッキング用のアイテム情報を取得
+    const itemToRemove = cartItems.find(item => item.id === id);
+    
     try {
       await api.cart.remove(id);
+      
+      // GA4 カートから削除トラッキング
+      if (itemToRemove) {
+        trackRemoveFromCart({
+          item_id: itemToRemove.product_id,
+          item_name: itemToRemove.products?.name || '',
+          item_variant: itemToRemove.product_variants?.size,
+          price: itemToRemove.products?.price || 0,
+        }, itemToRemove.quantity);
+      }
+      
       await loadCart();
     } catch (error) {
       console.error('Error removing item:', error);

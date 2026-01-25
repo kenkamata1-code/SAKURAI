@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, type Product, type ProductVariant, getImageUrl } from '../lib/api-client';
 import { ShoppingCart, ArrowLeft, Plus, Minus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { trackViewItem, trackAddToCart } from '../lib/gtm';
 
 export default function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -15,12 +16,27 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const hasTrackedViewItem = useRef(false);
 
   useEffect(() => {
     if (slug) {
       loadProduct();
     }
   }, [slug]);
+
+  // 商品詳細が読み込まれたらGA4にトラッキング
+  useEffect(() => {
+    if (product && !hasTrackedViewItem.current) {
+      hasTrackedViewItem.current = true;
+      trackViewItem({
+        item_id: product.id,
+        item_name: product.name,
+        item_category: product.category || undefined,
+        item_variant: selectedVariant?.size,
+        price: product.price,
+      });
+    }
+  }, [product, selectedVariant]);
 
   async function loadProduct() {
     try {
@@ -63,6 +79,16 @@ export default function ProductDetail() {
     setAddingToCart(true);
     try {
       await api.cart.add(product.id, selectedVariant.id, quantity);
+      
+      // GA4 カート追加トラッキング
+      trackAddToCart({
+        item_id: product.id,
+        item_name: product.name,
+        item_category: product.category || undefined,
+        item_variant: selectedVariant.size,
+        price: product.price,
+      }, quantity);
+      
       alert('カートに追加しました');
       navigate('/cart');
     } catch (error) {

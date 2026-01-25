@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { usePageTracking } from '../hooks/usePageTracking';
+import { trackContactSubmit } from '../lib/gtm';
 
 export default function Contact() {
   usePageTracking('/contact', 'Contact');
@@ -19,6 +20,10 @@ export default function Contact() {
 
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // GA4 お問い合わせ送信トラッキング
+      trackContactSubmit();
+      
       alert('お問い合わせを送信しました。担当者より折り返しご連絡いたします。');
       setFormData({
         name: '',

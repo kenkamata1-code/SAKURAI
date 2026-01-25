@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import type { SignUpData } from '../contexts/AuthContext';
 import { Lock, ArrowLeft, X } from 'lucide-react';
 import { resetPassword, confirmResetPassword } from 'aws-amplify/auth';
+import { trackLogin, trackSignUp } from '../lib/gtm';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -56,10 +57,14 @@ export default function Login() {
           setConfirmEmail(email);
           setShowConfirmSignUp(true);
         } else {
+          // GA4 会員登録トラッキング
+          trackSignUp('email');
           navigate('/');
         }
       } else {
         await signIn(email, password);
+        // GA4 ログイントラッキング
+        trackLogin('email');
         navigate('/');
       }
     } catch (err: any) {
@@ -84,6 +89,8 @@ export default function Login() {
     
     try {
       await confirmSignUpCode(confirmEmail, confirmCode);
+      // GA4 会員登録トラッキング
+      trackSignUp('email');
       navigate('/');
     } catch (err) {
       setError('確認コードが正しくありません。');

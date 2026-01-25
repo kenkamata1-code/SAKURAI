@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Product, getImageUrl } from '../lib/api-client';
 import { ShoppingCart, Filter } from 'lucide-react';
 import { usePageTracking } from '../hooks/usePageTracking';
 import { formatPrice } from '../lib/format';
+import { trackViewItemList, trackSelectItem } from '../lib/gtm';
 
 type CategoryFilter = 'all' | 'shoes' | 'accessory';
 
@@ -17,10 +18,24 @@ export default function Shop() {
   const [products, setProducts] = useState<ProductWithStock[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
   const [loading, setLoading] = useState(true);
+  const hasTrackedViewItemList = useRef(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // 商品一覧が読み込まれたらGA4にトラッキング
+  useEffect(() => {
+    if (products.length > 0 && !hasTrackedViewItemList.current) {
+      hasTrackedViewItemList.current = true;
+      trackViewItemList('商品一覧', products.map(p => ({
+        item_id: p.id,
+        item_name: p.name,
+        item_category: p.category || undefined,
+        price: p.price,
+      })));
+    }
+  }, [products]);
 
   async function loadData() {
     try {
@@ -37,6 +52,16 @@ export default function Shop() {
       setLoading(false);
     }
   }
+
+  // 商品クリック時のGA4トラッキング
+  const handleProductClick = (product: ProductWithStock) => {
+    trackSelectItem('商品一覧', {
+      item_id: product.id,
+      item_name: product.name,
+      item_category: product.category || undefined,
+      price: product.price,
+    });
+  };
 
   const filteredProducts = selectedCategory === 'all'
     ? products
@@ -109,6 +134,7 @@ export default function Shop() {
                     key={product.id}
                     to={`/shop/${product.slug}`}
                     className="group block"
+                    onClick={() => handleProductClick(product)}
                   >
                     <div className="aspect-square overflow-hidden bg-[#E8E8E8] mb-4">
                       <img

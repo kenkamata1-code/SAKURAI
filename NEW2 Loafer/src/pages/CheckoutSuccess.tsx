@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle, Package, ArrowRight } from 'lucide-react';
 import { api } from '../lib/api-client';
 import { formatPrice } from '../lib/format';
+import { trackPurchase } from '../lib/gtm';
 
 interface OrderDetails {
   status: string;
@@ -27,6 +28,7 @@ export default function CheckoutSuccess() {
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasPurchaseTracked = useRef(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -35,6 +37,35 @@ export default function CheckoutSuccess() {
       setLoading(false);
     }
   }, [sessionId]);
+
+  // 購入完了時のGA4トラッキング（重複防止）
+  useEffect(() => {
+    if (orderDetails && sessionId && !hasPurchaseTracked.current) {
+      // sessionStorageで重複チェック
+      const purchaseKey = `purchase_tracked_${sessionId}`;
+      const alreadyTracked = sessionStorage.getItem(purchaseKey);
+      
+      if (!alreadyTracked) {
+        hasPurchaseTracked.current = true;
+        
+        // 購入イベントをトラッキング
+        // Note: 注文詳細にitemsがある場合はそれを使用、なければ金額のみで計測
+        trackPurchase(
+          sessionId,
+          [{
+            item_id: 'order',
+            item_name: 'Order',
+            price: orderDetails.amountTotal,
+            quantity: 1,
+          }],
+          0, // shipping
+          0  // tax
+        );
+        
+        sessionStorage.setItem(purchaseKey, 'true');
+      }
+    }
+  }, [orderDetails, sessionId]);
 
   async function loadOrderDetails() {
     try {
