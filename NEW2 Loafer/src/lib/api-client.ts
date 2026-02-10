@@ -276,8 +276,7 @@ export const api = {
     },
     
     async get(id: string): Promise<Order> {
-      const res = await authFetch(`${apiConfig.bas
-        eUrl}/orders/${id}`);
+      const res = await authFetch(`${apiConfig.baseUrl}/orders/${id}`);
       if (!res.ok) throw new Error('Failed to fetch order');
       return res.json();
     },
