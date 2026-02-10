@@ -29,6 +29,15 @@ export default function Footer() {
               <Link to="/shop" className="block hover:text-gray-400 transition-colors uppercase">
                 Online Shop
               </Link>
+              <Link to="/design-philosophy" className="block hover:text-gray-400 transition-colors uppercase">
+                Design Philosophy
+              </Link>
+              <Link to="/maintenance" className="block hover:text-gray-400 transition-colors uppercase">
+                Maintenance
+              </Link>
+              <Link to="/styling" className="block hover:text-gray-400 transition-colors uppercase">
+                Styling
+              </Link>
               <Link to="/about" className="block hover:text-gray-400 transition-colors uppercase">
                 About
               </Link>
