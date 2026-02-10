@@ -14,6 +14,8 @@ import Cart from './pages/Cart';
 import CheckoutSuccess from './pages/CheckoutSuccess';
 import About from './pages/About';
 import Details from './pages/Details';
+import DesignPhilosophy from './pages/DesignPhilosophy';
+import Maintenance from './pages/Maintenance';
 import Contact from './pages/Contact';
 import Login from './pages/Login';
 import MyAccount from './pages/MyAccount';
@@ -96,6 +98,8 @@ function App() {
         <Route path="/checkout/success" element={<CheckoutSuccess />} />
         <Route path="/about" element={<About />} />
         <Route path="/details" element={<Details />} />
+        <Route path="/design-philosophy" element={<DesignPhilosophy />} />
+        <Route path="/maintenance" element={<Maintenance />} />
         <Route path="/contact" element={<Contact />} />
       </Routes>
       {!isLoginPage && <Footer />}

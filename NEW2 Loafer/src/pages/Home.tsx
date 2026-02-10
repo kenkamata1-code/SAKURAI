@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Youtube, Mail, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Mail, ChevronLeft, ChevronRight, Sparkles, Wrench } from 'lucide-react';
 import { api, type Product, type Styling, getImageUrl } from '../lib/api-client';
 import { usePageTracking } from '../hooks/usePageTracking';
 
@@ -340,7 +340,7 @@ function BrandSection() {
 
         <div className="text-center mt-20">
           <Link
-            to="/details"
+            to="/design-philosophy"
             className="inline-block px-20 py-4 border border-gray-900 text-xs tracking-[0.2em] hover:bg-gray-900 hover:text-white transition-all duration-300 uppercase"
           >
             View More
@@ -510,34 +510,49 @@ function CTASection() {
   return (
     <section className="py-20 px-6">
       <div className="max-w-[1200px] mx-auto">
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-3 gap-8">
           <Link
-            to="/contact"
+            to="/design-philosophy"
             className="group relative aspect-[4/3] border-2 border-gray-900 flex flex-col items-center justify-center hover:bg-gray-900 transition-all duration-300 overflow-hidden"
           >
-            <h3 className="text-2xl md:text-3xl tracking-[0.3em] mb-4 group-hover:text-white transition-colors font-light">
-              CONTACT
+            <h3 className="text-xl md:text-2xl tracking-[0.2em] mb-4 group-hover:text-white transition-colors font-light text-center">
+              DESIGN<br />PHILOSOPHY
             </h3>
-            <p className="text-xs tracking-[0.2em] text-gray-600 group-hover:text-white/80 transition-colors">
-              お問い合わせ / Inquiries
+            <p className="text-xs tracking-[0.15em] text-gray-600 group-hover:text-white/80 transition-colors text-center">
+              設計思想 / Design Philosophy
             </p>
             <div className="absolute bottom-8 w-6 h-6 border border-gray-900 group-hover:border-white rounded-full flex items-center justify-center">
-              <Mail className="w-3 h-3 text-gray-900 group-hover:text-white" strokeWidth={1.5} />
+              <Sparkles className="w-3 h-3 text-gray-900 group-hover:text-white" strokeWidth={1.5} />
             </div>
           </Link>
 
           <Link
-            to="/shop"
-            className="group relative aspect-[4/3] border-2 border-gray-200 flex flex-col items-center justify-center hover:border-gray-900 transition-all duration-300 overflow-hidden"
+            to="/maintenance"
+            className="group relative aspect-[4/3] border-2 border-gray-200 flex flex-col items-center justify-center hover:border-gray-900 hover:bg-gray-900 transition-all duration-300 overflow-hidden"
           >
-            <h3 className="text-2xl md:text-3xl tracking-[0.3em] mb-4 group-hover:text-gray-900 transition-colors font-light">
-              ONLINE SHOP
+            <h3 className="text-xl md:text-2xl tracking-[0.2em] mb-4 group-hover:text-white transition-colors font-light">
+              MAINTENANCE
             </h3>
-            <p className="text-xs tracking-[0.2em] text-gray-600 group-hover:text-gray-900 transition-colors">
-              オンラインショップ / Shop Now
+            <p className="text-xs tracking-[0.15em] text-gray-600 group-hover:text-white/80 transition-colors text-center">
+              メンテナンス / Care Guide
             </p>
-            <div className="absolute bottom-8 w-6 h-6 border border-gray-300 group-hover:border-gray-900 rounded-full flex items-center justify-center">
-              <ExternalLink className="w-3 h-3 text-gray-400 group-hover:text-gray-900" strokeWidth={1.5} />
+            <div className="absolute bottom-8 w-6 h-6 border border-gray-300 group-hover:border-white rounded-full flex items-center justify-center">
+              <Wrench className="w-3 h-3 text-gray-400 group-hover:text-white" strokeWidth={1.5} />
+            </div>
+          </Link>
+
+          <Link
+            to="/contact"
+            className="group relative aspect-[4/3] border-2 border-gray-200 flex flex-col items-center justify-center hover:border-gray-900 hover:bg-gray-900 transition-all duration-300 overflow-hidden"
+          >
+            <h3 className="text-xl md:text-2xl tracking-[0.2em] mb-4 group-hover:text-white transition-colors font-light">
+              CONTACT
+            </h3>
+            <p className="text-xs tracking-[0.15em] text-gray-600 group-hover:text-white/80 transition-colors text-center">
+              お問い合わせ / Inquiries
+            </p>
+            <div className="absolute bottom-8 w-6 h-6 border border-gray-300 group-hover:border-white rounded-full flex items-center justify-center">
+              <Mail className="w-3 h-3 text-gray-400 group-hover:text-white" strokeWidth={1.5} />
             </div>
           </Link>
         </div>
