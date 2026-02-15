@@ -22,6 +22,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// 管理者メールアドレスリスト（THE LONG GAME統合時に設定変更可能）
+const ADMIN_EMAILS = [
+  'stepnext.leathershoes@gmail.com',
+  'ken.kamata1@gmail.com',
+];
+
 // モックユーザーデータ
 const MOCK_USER: User = {
   id: 'demo-user',
@@ -31,7 +37,7 @@ const MOCK_USER: User = {
 const MOCK_PROFILE: Profile = {
   id: 'demo-user',
   email: 'demo@wardrobe.app',
-  is_admin: false,
+  is_admin: true, // デモ用に管理者として設定
   first_name: 'Demo',
   last_name: 'User',
   display_initial: 'D.U.',

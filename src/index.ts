@@ -9,6 +9,7 @@ export { default as WardrobePage } from './pages/WardrobePage';
 export { default as ItemCard } from './components/ItemCard';
 export { default as ImageUpload } from './components/ImageUpload';
 export { default as AddItemModal } from './components/AddItemModal';
+export { default as ProtectedRoute } from './components/ProtectedRoute';
 
 // Dashboard Components
 export { KPICard, BarChart, PieChart, TimeRangeSelector, AIInsightCard } from './components/dashboard';
