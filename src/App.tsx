@@ -9,8 +9,8 @@ import WardrobePage from './pages/WardrobePage';
  * 管理者制限を有効にするには、ProtectedRouteの adminOnly を true に設定してください
  */
 function App() {
-  // 管理者のみアクセス可能にする場合は true に変更
-  const ADMIN_ONLY = false;
+  // 管理者のみアクセス可能（本番環境設定）
+  const ADMIN_ONLY = true;
 
   return (
     <AuthProvider>
