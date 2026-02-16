@@ -23,6 +23,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AccountManagement from './pages/AccountManagement';
 import Analytics from './pages/Analytics';
 import OrderManagement from './pages/OrderManagement';
+import WardrobePage from './wardrobe/WardrobePage';
 
 function App() {
   const location = useLocation();
@@ -91,6 +92,14 @@ function App() {
           element={
             <ProtectedRoute adminOnly>
               <OrderManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/wardrobe"
+          element={
+            <ProtectedRoute adminOnly>
+              <WardrobePage />
             </ProtectedRoute>
           }
         />
