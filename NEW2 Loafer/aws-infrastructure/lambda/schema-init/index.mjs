@@ -255,6 +255,9 @@ export const handler = async (event) => {
                 ('37347a98-00b1-702b-cb14-199bcbe37634', 'ken.kamata1@gmail.com', true)
             ON CONFLICT (cognito_user_id) DO UPDATE SET is_admin = true, updated_at = NOW()`,
             
+            // メールアドレスで管理者権限を付与（既存ユーザー用）
+            `UPDATE profiles SET is_admin = true, updated_at = NOW() WHERE email = 'ken.kamata1@gmail.com'`,
+            
             // サンプル商品データ（IDを自動生成）
             `INSERT INTO products (name, slug, description, price, image_url, category, stock, featured, display_order) VALUES
                 ('クラシック ペニーローファー', 'classic-penny-loafer', 
