@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, X } from 'lucide-react';
 import { apiClient } from '../lib/api-client';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ImageUploadProps {
   onImageSelect?: (file: File) => void;
