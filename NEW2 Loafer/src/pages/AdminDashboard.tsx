@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Package, Image, Users, Shield, BarChart3, ShoppingBag } from 'lucide-react';
+import { Package, Image, Users, Shield, BarChart3, ShoppingBag, Shirt } from 'lucide-react';
 
 export default function AdminDashboard() {
   const adminSections = [
@@ -41,6 +41,14 @@ export default function AdminDashboard() {
       description: '注文状況の確認と発送管理を行います',
       icon: ShoppingBag,
       path: '/admin/orders',
+      color: 'border-gray-900',
+    },
+    {
+      title: 'ワードローブ',
+      subtitle: 'Wardrobe Management',
+      description: 'ワードローブアイテムの管理、スタイリング、サイズ推奨',
+      icon: Shirt,
+      path: '/admin/wardrobe',
       color: 'border-gray-900',
     },
   ];
