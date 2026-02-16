@@ -316,28 +316,39 @@ class AWSApiClient {
     return { data: recommendation, error: null };
   }
 
-  // ==================== External API (Scraping, AI) - モック ====================
+  // ==================== External API (Scraping, AI) - Gemini API ====================
   async scrapeProductUrl(url: string): Promise<ApiResponse<ScrapedProductData>> {
-    console.log('Scraping URL:', url);
-    const mockData: ScrapedProductData = {
-      name: 'Sample Product',
-      brand: 'Sample Brand',
-      price: '15000',
-      currency: 'JPY',
-      description: 'URLから取得した商品情報（モック）',
-    };
-    return { data: mockData, error: null };
+    try {
+      const res = await authFetch(`${API_BASE_URL}/wardrobe/scrape-url`, {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        return { data: null, error: new Error(error.error || 'Failed to scrape URL') };
+      }
+      const data = await res.json();
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error: error as Error };
+    }
   }
 
   async extractTagInfo(imageBase64: string): Promise<ApiResponse<TagExtractionResult>> {
-    console.log('Extracting tag info from image');
-    const mockResult: TagExtractionResult = {
-      brand: 'Detected Brand',
-      size: 'M',
-      category: 'トップス',
-      materials: '綿 100%',
-    };
-    return { data: mockResult, error: null };
+    try {
+      const res = await authFetch(`${API_BASE_URL}/wardrobe/extract-tag`, {
+        method: 'POST',
+        body: JSON.stringify({ imageBase64 }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        return { data: null, error: new Error(error.error || 'Failed to extract tag info') };
+      }
+      const data = await res.json();
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error: error as Error };
+    }
   }
 
   // ==================== File Upload (S3) ====================

@@ -1527,6 +1527,193 @@ export const handler = async (event) => {
       }
     }
 
+    // ==================== WARDROBE 商品URLスクレイピング (Gemini API) ====================
+    if (path === "/v1/wardrobe/scrape-url" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { url } = parsedBody;
+      
+      if (!url) {
+        return response(400, { error: "url is required" });
+      }
+      
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+      
+      if (!GEMINI_API_KEY) {
+        // Gemini API未設定の場合はURLからドメイン名を抽出してモックデータを返す
+        const urlObj = new URL(url);
+        const domain = urlObj.hostname.replace('www.', '').split('.')[0];
+        return response(200, {
+          name: 'URLから取得した商品',
+          brand: domain.charAt(0).toUpperCase() + domain.slice(1),
+          price: '',
+          currency: 'JPY',
+          description: `${url} から取得（Gemini API未設定）`,
+          source_url: url,
+        });
+      }
+      
+      try {
+        // URLのページ内容を取得
+        const pageRes = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        });
+        const html = await pageRes.text();
+        
+        // HTMLから主要なテキストを抽出（簡略化）
+        const textContent = html
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .substring(0, 10000); // Gemini APIへの入力を制限
+        
+        // Gemini APIで商品情報を抽出
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `以下のウェブページから商品情報を抽出してJSON形式で返してください。
+商品が見つからない場合は空のオブジェクトを返してください。
+
+抽出する情報:
+- name: 商品名
+- brand: ブランド名
+- price: 価格（数字のみ）
+- currency: 通貨（JPY, USD, EUR等）
+- color: 色
+- size: サイズ
+- description: 商品説明（100文字以内）
+- image_url: メイン商品画像のURL（あれば）
+
+JSONのみを返してください。他の説明は不要です。
+
+ウェブページ内容:
+${textContent}
+
+URL: ${url}`
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 1024,
+              }
+            }),
+          }
+        );
+        
+        if (!geminiRes.ok) {
+          throw new Error('Gemini API error');
+        }
+        
+        const geminiData = await geminiRes.json();
+        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        
+        // JSONを抽出（マークダウンコードブロックを除去）
+        let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const productData = JSON.parse(jsonStr);
+        
+        return response(200, {
+          ...productData,
+          source_url: url,
+        });
+        
+      } catch (error) {
+        console.error("Error scraping URL:", error);
+        return response(500, { error: "商品情報の取得に失敗しました: " + error.message });
+      }
+    }
+
+    // ==================== WARDROBE タグ画像からの情報抽出 (Gemini Vision) ====================
+    if (path === "/v1/wardrobe/extract-tag" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { imageBase64 } = parsedBody;
+      
+      if (!imageBase64) {
+        return response(400, { error: "imageBase64 is required" });
+      }
+      
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+      
+      if (!GEMINI_API_KEY) {
+        return response(200, {
+          brand: '不明',
+          size: '',
+          materials: '',
+          care_instructions: '',
+          message: 'Gemini API未設定のため、手動で入力してください',
+        });
+      }
+      
+      try {
+        // Base64データからプレフィックスを除去
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  {
+                    text: `この衣類タグの画像から情報を抽出してJSON形式で返してください。
+
+抽出する情報:
+- brand: ブランド名
+- size: サイズ（S, M, L, XL, 数値等）
+- category: カテゴリー（トップス/アウター/パンツ/シューズ等）
+- materials: 素材（例: 綿100%、ポリエステル80%綿20%）
+- care_instructions: 洗濯表示（例: 手洗い、ドライクリーニング）
+- color: 色（読み取れれば）
+- made_in: 生産国（読み取れれば）
+
+JSONのみを返してください。読み取れない項目は空文字にしてください。`
+                  },
+                  {
+                    inline_data: {
+                      mime_type: 'image/jpeg',
+                      data: base64Data
+                    }
+                  }
+                ]
+              }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 1024,
+              }
+            }),
+          }
+        );
+        
+        if (!geminiRes.ok) {
+          throw new Error('Gemini API error');
+        }
+        
+        const geminiData = await geminiRes.json();
+        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        
+        let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const tagData = JSON.parse(jsonStr);
+        
+        return response(200, tagData);
+        
+      } catch (error) {
+        console.error("Error extracting tag info:", error);
+        return response(500, { error: "タグ情報の読み取りに失敗しました: " + error.message });
+      }
+    }
+
     return response(404, { error: "Not found", path, method });
 
   } catch (error) {
