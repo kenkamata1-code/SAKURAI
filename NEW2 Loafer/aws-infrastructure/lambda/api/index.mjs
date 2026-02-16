@@ -1218,6 +1218,315 @@ export const handler = async (event) => {
       return response(200, { received: true });
     }
 
+    // ==================== WARDROBE アイテム ====================
+    // 一覧取得
+    if (path === "/v1/wardrobe/items" && method === "GET") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const result = await db.query(`
+        SELECT * FROM wardrobe_items 
+        WHERE cognito_user_id = $1 
+        ORDER BY created_at DESC
+      `, [userId]);
+      return response(200, result.rows);
+    }
+
+    // 作成
+    if (path === "/v1/wardrobe/items" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { 
+        name, brand, size, size_details, color, category,
+        purchase_date, purchase_price, currency, purchase_location,
+        source_url, image_url, image_url_2, image_url_3, notes, is_from_shop
+      } = parsedBody;
+
+      const result = await db.query(`
+        INSERT INTO wardrobe_items (
+          cognito_user_id, name, brand, size, size_details, color, category,
+          purchase_date, purchase_price, currency, purchase_location,
+          source_url, image_url, image_url_2, image_url_3, notes, is_from_shop
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        RETURNING *
+      `, [
+        userId, name, brand, size, size_details ? JSON.stringify(size_details) : null, 
+        color, category, purchase_date, purchase_price, currency || 'JPY', 
+        purchase_location, source_url, image_url, image_url_2, image_url_3, notes, is_from_shop || false
+      ]);
+      return response(200, result.rows[0]);
+    }
+
+    // 更新
+    if (path.match(/^\/v1\/wardrobe\/items\/[\w-]+$/) && method === "PUT") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      const parsedBody = JSON.parse(body || "{}");
+      const fields = [];
+      const values = [];
+      let paramIndex = 1;
+
+      const allowedFields = [
+        "name", "brand", "size", "size_details", "color", "category",
+        "purchase_date", "purchase_price", "currency", "purchase_location",
+        "source_url", "image_url", "image_url_2", "image_url_3", "notes",
+        "is_discarded", "discarded_at", "is_sold", "sold_date", "sold_price", "sold_currency", "sold_location"
+      ];
+      
+      for (const field of allowedFields) {
+        if (parsedBody[field] !== undefined) {
+          if (field === "size_details") {
+            fields.push(`${field} = $${paramIndex}`);
+            values.push(JSON.stringify(parsedBody[field]));
+          } else {
+            fields.push(`${field} = $${paramIndex}`);
+            values.push(parsedBody[field]);
+          }
+          paramIndex++;
+        }
+      }
+
+      if (fields.length === 0) {
+        return response(400, { error: "更新するフィールドがありません" });
+      }
+
+      values.push(id);
+      values.push(userId);
+      const result = await db.query(
+        `UPDATE wardrobe_items SET ${fields.join(", ")}, updated_at = NOW() 
+         WHERE id = $${paramIndex} AND cognito_user_id = $${paramIndex + 1} RETURNING *`,
+        values
+      );
+      if (result.rows.length === 0) return response(404, { error: "Item not found" });
+      return response(200, result.rows[0]);
+    }
+
+    // 削除
+    if (path.match(/^\/v1\/wardrobe\/items\/[\w-]+$/) && method === "DELETE") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      await db.query("DELETE FROM wardrobe_items WHERE id = $1 AND cognito_user_id = $2", [id, userId]);
+      return response(200, { success: true });
+    }
+
+    // ==================== WARDROBE スタイリング写真 ====================
+    // 一覧取得
+    if (path === "/v1/wardrobe/styling-photos" && method === "GET") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const result = await db.query(`
+        SELECT sp.*, 
+          json_agg(
+            jsonb_build_object('id', wsi.id, 'wardrobe_item_id', wsi.wardrobe_item_id, 'item', row_to_json(wi))
+          ) FILTER (WHERE wsi.id IS NOT NULL) as worn_items
+        FROM wardrobe_styling_photos sp
+        LEFT JOIN wardrobe_styling_items wsi ON sp.id = wsi.styling_photo_id
+        LEFT JOIN wardrobe_items wi ON wsi.wardrobe_item_id = wi.id
+        WHERE sp.cognito_user_id = $1
+        GROUP BY sp.id
+        ORDER BY sp.created_at DESC
+      `, [userId]);
+      return response(200, result.rows);
+    }
+
+    // 作成
+    if (path === "/v1/wardrobe/styling-photos" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { image_url, title, notes, worn_item_ids } = parsedBody;
+
+      const photoResult = await db.query(`
+        INSERT INTO wardrobe_styling_photos (cognito_user_id, image_url, title, notes)
+        VALUES ($1, $2, $3, $4) RETURNING *
+      `, [userId, image_url, title, notes]);
+
+      const photo = photoResult.rows[0];
+
+      // 関連アイテムを追加
+      if (worn_item_ids && worn_item_ids.length > 0) {
+        for (const itemId of worn_item_ids) {
+          await db.query(`
+            INSERT INTO wardrobe_styling_items (styling_photo_id, wardrobe_item_id)
+            VALUES ($1, $2)
+          `, [photo.id, itemId]);
+        }
+      }
+
+      return response(200, photo);
+    }
+
+    // 削除
+    if (path.match(/^\/v1\/wardrobe\/styling-photos\/[\w-]+$/) && method === "DELETE") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      await db.query("DELETE FROM wardrobe_styling_photos WHERE id = $1 AND cognito_user_id = $2", [id, userId]);
+      return response(200, { success: true });
+    }
+
+    // ==================== 足の測定 ====================
+    // 一覧取得
+    if (path === "/v1/wardrobe/foot-measurements" && method === "GET") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const result = await db.query(`
+        SELECT * FROM foot_measurements 
+        WHERE cognito_user_id = $1 
+        ORDER BY measurement_date DESC
+      `, [userId]);
+      return response(200, result.rows);
+    }
+
+    // 作成
+    if (path === "/v1/wardrobe/foot-measurements" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { foot_type, length_mm, width_mm, arch_height_mm, instep_height_mm, scan_image_url } = parsedBody;
+
+      const result = await db.query(`
+        INSERT INTO foot_measurements (cognito_user_id, foot_type, length_mm, width_mm, arch_height_mm, instep_height_mm, scan_image_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+      `, [userId, foot_type, length_mm, width_mm, arch_height_mm, instep_height_mm, scan_image_url]);
+      return response(200, result.rows[0]);
+    }
+
+    // 更新 (is_active)
+    if (path.match(/^\/v1\/wardrobe\/foot-measurements\/[\w-]+$/) && method === "PUT") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      const parsedBody = JSON.parse(body || "{}");
+      const { is_active } = parsedBody;
+
+      const result = await db.query(`
+        UPDATE foot_measurements SET is_active = $1 
+        WHERE id = $2 AND cognito_user_id = $3 RETURNING *
+      `, [is_active, id, userId]);
+      if (result.rows.length === 0) return response(404, { error: "Measurement not found" });
+      return response(200, result.rows[0]);
+    }
+
+    // 削除
+    if (path.match(/^\/v1\/wardrobe\/foot-measurements\/[\w-]+$/) && method === "DELETE") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      await db.query("DELETE FROM foot_measurements WHERE id = $1 AND cognito_user_id = $2", [id, userId]);
+      return response(200, { success: true });
+    }
+
+    // ==================== ブランドサイズマッピング ====================
+    // 一覧取得
+    if (path === "/v1/wardrobe/brand-size-mappings" && method === "GET") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const result = await db.query(`
+        SELECT * FROM brand_size_mappings 
+        WHERE cognito_user_id = $1 
+        ORDER BY created_at DESC
+      `, [userId]);
+      return response(200, result.rows);
+    }
+
+    // 作成
+    if (path === "/v1/wardrobe/brand-size-mappings" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { brand_name, size, size_system, numeric_size, fit_rating, comfort_rating, notes } = parsedBody;
+
+      const result = await db.query(`
+        INSERT INTO brand_size_mappings (cognito_user_id, brand_name, size, size_system, numeric_size, fit_rating, comfort_rating, notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *
+      `, [userId, brand_name, size, size_system, numeric_size, fit_rating || 3, comfort_rating || 3, notes]);
+      return response(200, result.rows[0]);
+    }
+
+    // 更新
+    if (path.match(/^\/v1\/wardrobe\/brand-size-mappings\/[\w-]+$/) && method === "PUT") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      const parsedBody = JSON.parse(body || "{}");
+      const fields = [];
+      const values = [];
+      let paramIndex = 1;
+
+      const allowedFields = ["brand_name", "size", "size_system", "numeric_size", "fit_rating", "comfort_rating", "notes"];
+      for (const field of allowedFields) {
+        if (parsedBody[field] !== undefined) {
+          fields.push(`${field} = $${paramIndex}`);
+          values.push(parsedBody[field]);
+          paramIndex++;
+        }
+      }
+
+      if (fields.length === 0) {
+        return response(400, { error: "更新するフィールドがありません" });
+      }
+
+      values.push(id);
+      values.push(userId);
+      const result = await db.query(
+        `UPDATE brand_size_mappings SET ${fields.join(", ")} 
+         WHERE id = $${paramIndex} AND cognito_user_id = $${paramIndex + 1} RETURNING *`,
+        values
+      );
+      if (result.rows.length === 0) return response(404, { error: "Mapping not found" });
+      return response(200, result.rows[0]);
+    }
+
+    // 削除
+    if (path.match(/^\/v1\/wardrobe\/brand-size-mappings\/[\w-]+$/) && method === "DELETE") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      await db.query("DELETE FROM brand_size_mappings WHERE id = $1 AND cognito_user_id = $2", [id, userId]);
+      return response(200, { success: true });
+    }
+
+    // ==================== WARDROBE 画像アップロード用URL ====================
+    if (path === "/v1/wardrobe/upload-url" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { filename, contentType } = parsedBody;
+      
+      if (!filename || !contentType) {
+        return response(400, { error: "filename and contentType are required" });
+      }
+      
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 15);
+      const ext = filename.split('.').pop();
+      const key = `wardrobe/${userId}/${timestamp}-${randomId}.${ext}`;
+      
+      try {
+        const command = new PutObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: key,
+          ContentType: contentType,
+        });
+        
+        const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+        const CLOUDFRONT_DOMAIN = process.env.CLOUDFRONT_DOMAIN || "d8l6v2r98r1en.cloudfront.net";
+        const publicUrl = `https://${CLOUDFRONT_DOMAIN}/${key}`;
+        
+        return response(200, {
+          uploadUrl,
+          publicUrl,
+          key,
+        });
+      } catch (error) {
+        console.error("Error generating presigned URL:", error);
+        return response(500, { error: "Failed to generate upload URL" });
+      }
+    }
+
     return response(404, { error: "Not found", path, method });
 
   } catch (error) {
