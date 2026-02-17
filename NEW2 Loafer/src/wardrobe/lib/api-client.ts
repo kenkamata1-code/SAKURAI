@@ -17,7 +17,7 @@ import type {
 } from '../types';
 
 // API設定 (aws-configから取得)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.thelonggame.jp/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://3eal2nthgc.execute-api.ap-northeast-1.amazonaws.com/v1';
 const CLOUDFRONT_DOMAIN = import.meta.env.VITE_CLOUDFRONT_DOMAIN || 'd8l6v2r98r1en.cloudfront.net';
 
 // 認証トークンを取得
