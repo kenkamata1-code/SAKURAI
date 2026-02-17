@@ -153,15 +153,28 @@ export default function WardrobePage() {
   const handleStylingImageSelect = async (file: File) => {
     if (!user) return;
     
+    // まずローカルプレビューを表示
+    const localPreview = URL.createObjectURL(file);
+    setStylingImage(localPreview);
     setStylingLoading(true);
+    
     try {
+      console.log('📤 Starting styling image upload...');
       const result = await apiClient.uploadImage(user.id, file, 'styling-photos');
       if (result.data) {
+        console.log('✅ Upload success:', result.data);
         setStylingImage(result.data);
+        // ローカルプレビューのURLを解放
+        URL.revokeObjectURL(localPreview);
+      } else if (result.error) {
+        console.error('❌ Upload error:', result.error);
+        alert('画像のアップロードに失敗しました: ' + result.error.message);
+        setStylingImage(null);
       }
     } catch (error) {
       console.error('Error uploading image:', error);
       alert('画像のアップロードに失敗しました');
+      setStylingImage(null);
     } finally {
       setStylingLoading(false);
     }
