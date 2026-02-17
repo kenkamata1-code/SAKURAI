@@ -1218,6 +1218,119 @@ export const handler = async (event) => {
       return response(200, { received: true });
     }
 
+    // ==================== Wardrobe: URL Scraping ====================
+    if (path === "/v1/wardrobe/scrape-url" && method === "POST") {
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+      if (!GEMINI_API_KEY) {
+        return response(500, { error: "Gemini API key not configured" });
+      }
+
+      const { url } = JSON.parse(body || "{}");
+      if (!url) {
+        return response(400, { error: "URL is required" });
+      }
+
+      console.log("Scraping URL:", url);
+
+      try {
+        // Gemini APIを使用してURLから商品情報を抽出
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `以下のECサイトのURLから商品情報を抽出してください。JSONで返してください。
+
+URL: ${url}
+
+抽出する情報:
+- name: 商品名
+- brand: ブランド名
+- category: カテゴリ（Shoes/シューズ, Tops/トップス, Bottoms/ボトムス, Outerwear/アウター, Accessories/アクセサリー, Other/その他 のいずれか）
+- description: 商品説明（短く）
+- price: 価格（数値のみ、通貨記号なし）
+- currency: 通貨コード（JPY, USD等）
+- available_colors: 利用可能なカラーの配列 [{ "name": "カラー名", "code": "#HEX色コード（わかれば）", "image_url": "そのカラーの商品画像URL（あれば）" }]
+- available_sizes: 利用可能なサイズの配列 ["S", "M", "L", "XL" など]
+- default_image_url: デフォルト商品画像URL
+
+JSON形式のみで返答してください。マークダウンは不要です。`
+                }]
+              }]
+            })
+          }
+        );
+
+        if (!geminiResponse.ok) {
+          const errorText = await geminiResponse.text();
+          console.error("Gemini API error:", errorText);
+          return response(500, { error: "Failed to scrape URL" });
+        }
+
+        const geminiData = await geminiResponse.json();
+        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        
+        console.log("Gemini response:", responseText);
+
+        // JSONを抽出（マークダウンコードブロックを除去）
+        let jsonStr = responseText.trim();
+        if (jsonStr.startsWith("```json")) {
+          jsonStr = jsonStr.slice(7);
+        } else if (jsonStr.startsWith("```")) {
+          jsonStr = jsonStr.slice(3);
+        }
+        if (jsonStr.endsWith("```")) {
+          jsonStr = jsonStr.slice(0, -3);
+        }
+        jsonStr = jsonStr.trim();
+
+        const productData = JSON.parse(jsonStr);
+        
+        return response(200, {
+          success: true,
+          data: productData
+        });
+      } catch (error) {
+        console.error("Scraping error:", error);
+        return response(500, { error: "Failed to parse product data" });
+      }
+    }
+
+    // ==================== Wardrobe: Upload URL ====================
+    if (path === "/v1/wardrobe/upload-url" && method === "POST") {
+      const { filename, contentType } = JSON.parse(body || "{}");
+      
+      if (!filename || !contentType) {
+        return response(400, { error: "filename and contentType are required" });
+      }
+
+      const userId = getUserId(event);
+      if (!userId) {
+        return response(401, { error: "認証が必要です" });
+      }
+
+      const key = `wardrobe/${userId}/${Date.now()}-${filename}`;
+      
+      const command = new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: key,
+        ContentType: contentType,
+      });
+
+      try {
+        const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+        const publicUrl = `https://${process.env.CLOUDFRONT_DOMAIN || 'd8l6v2r98r1en.cloudfront.net'}/${key}`;
+        
+        return response(200, { uploadUrl, publicUrl });
+      } catch (error) {
+        console.error("S3 signed URL error:", error);
+        return response(500, { error: "Failed to generate upload URL" });
+      }
+    }
+
     return response(404, { error: "Not found", path, method });
 
   } catch (error) {
