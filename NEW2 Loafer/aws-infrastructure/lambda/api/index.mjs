@@ -1218,116 +1218,500 @@ export const handler = async (event) => {
       return response(200, { received: true });
     }
 
-    // ==================== Wardrobe: URL Scraping ====================
-    if (path === "/v1/wardrobe/scrape-url" && method === "POST") {
-      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-      if (!GEMINI_API_KEY) {
-        return response(500, { error: "Gemini API key not configured" });
-      }
-
-      const { url } = JSON.parse(body || "{}");
-      if (!url) {
-        return response(400, { error: "URL is required" });
-      }
-
-      console.log("Scraping URL:", url);
-
-      try {
-        // Gemini APIを使用してURLから商品情報を抽出
-        const geminiResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{
-                  text: `以下のECサイトのURLから商品情報を抽出してください。JSONで返してください。
-
-URL: ${url}
-
-抽出する情報:
-- name: 商品名
-- brand: ブランド名
-- category: カテゴリ（Shoes/シューズ, Tops/トップス, Bottoms/ボトムス, Outerwear/アウター, Accessories/アクセサリー, Other/その他 のいずれか）
-- description: 商品説明（短く）
-- price: 価格（数値のみ、通貨記号なし）
-- currency: 通貨コード（JPY, USD等）
-- available_colors: 利用可能なカラーの配列 [{ "name": "カラー名", "code": "#HEX色コード（わかれば）", "image_url": "そのカラーの商品画像URL（あれば）" }]
-- available_sizes: 利用可能なサイズの配列 ["S", "M", "L", "XL" など]
-- default_image_url: デフォルト商品画像URL
-
-JSON形式のみで返答してください。マークダウンは不要です。`
-                }]
-              }]
-            })
-          }
-        );
-
-        if (!geminiResponse.ok) {
-          const errorText = await geminiResponse.text();
-          console.error("Gemini API error:", errorText);
-          return response(500, { error: "Failed to scrape URL" });
-        }
-
-        const geminiData = await geminiResponse.json();
-        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        
-        console.log("Gemini response:", responseText);
-
-        // JSONを抽出（マークダウンコードブロックを除去）
-        let jsonStr = responseText.trim();
-        if (jsonStr.startsWith("```json")) {
-          jsonStr = jsonStr.slice(7);
-        } else if (jsonStr.startsWith("```")) {
-          jsonStr = jsonStr.slice(3);
-        }
-        if (jsonStr.endsWith("```")) {
-          jsonStr = jsonStr.slice(0, -3);
-        }
-        jsonStr = jsonStr.trim();
-
-        const productData = JSON.parse(jsonStr);
-        
-        return response(200, {
-          success: true,
-          data: productData
-        });
-      } catch (error) {
-        console.error("Scraping error:", error);
-        return response(500, { error: "Failed to parse product data" });
-      }
+    // ==================== WARDROBE アイテム ====================
+    // 一覧取得
+    if (path === "/v1/wardrobe/items" && method === "GET") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const result = await db.query(`
+        SELECT * FROM wardrobe_items 
+        WHERE cognito_user_id = $1 
+        ORDER BY created_at DESC
+      `, [userId]);
+      return response(200, result.rows);
     }
 
-    // ==================== Wardrobe: Upload URL ====================
+    // 作成
+    if (path === "/v1/wardrobe/items" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { 
+        name, brand, size, size_details, color, category,
+        purchase_date, purchase_price, currency, purchase_location,
+        source_url, image_url, image_url_2, image_url_3, notes, is_from_shop
+      } = parsedBody;
+
+      const result = await db.query(`
+        INSERT INTO wardrobe_items (
+          cognito_user_id, name, brand, size, size_details, color, category,
+          purchase_date, purchase_price, currency, purchase_location,
+          source_url, image_url, image_url_2, image_url_3, notes, is_from_shop
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        RETURNING *
+      `, [
+        userId, name, brand, size, size_details ? JSON.stringify(size_details) : null, 
+        color, category, purchase_date, purchase_price, currency || 'JPY', 
+        purchase_location, source_url, image_url, image_url_2, image_url_3, notes, is_from_shop || false
+      ]);
+      return response(200, result.rows[0]);
+    }
+
+    // 更新
+    if (path.match(/^\/v1\/wardrobe\/items\/[\w-]+$/) && method === "PUT") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      const parsedBody = JSON.parse(body || "{}");
+      const fields = [];
+      const values = [];
+      let paramIndex = 1;
+
+      const allowedFields = [
+        "name", "brand", "size", "size_details", "color", "category",
+        "purchase_date", "purchase_price", "currency", "purchase_location",
+        "source_url", "image_url", "image_url_2", "image_url_3", "notes",
+        "is_discarded", "discarded_at", "is_sold", "sold_date", "sold_price", "sold_currency", "sold_location"
+      ];
+      
+      for (const field of allowedFields) {
+        if (parsedBody[field] !== undefined) {
+          if (field === "size_details") {
+            fields.push(`${field} = $${paramIndex}`);
+            values.push(JSON.stringify(parsedBody[field]));
+          } else {
+            fields.push(`${field} = $${paramIndex}`);
+            values.push(parsedBody[field]);
+          }
+          paramIndex++;
+        }
+      }
+
+      if (fields.length === 0) {
+        return response(400, { error: "更新するフィールドがありません" });
+      }
+
+      values.push(id);
+      values.push(userId);
+      const result = await db.query(
+        `UPDATE wardrobe_items SET ${fields.join(", ")}, updated_at = NOW() 
+         WHERE id = $${paramIndex} AND cognito_user_id = $${paramIndex + 1} RETURNING *`,
+        values
+      );
+      if (result.rows.length === 0) return response(404, { error: "Item not found" });
+      return response(200, result.rows[0]);
+    }
+
+    // 削除
+    if (path.match(/^\/v1\/wardrobe\/items\/[\w-]+$/) && method === "DELETE") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      await db.query("DELETE FROM wardrobe_items WHERE id = $1 AND cognito_user_id = $2", [id, userId]);
+      return response(200, { success: true });
+    }
+
+    // ==================== WARDROBE スタイリング写真 ====================
+    // 一覧取得
+    if (path === "/v1/wardrobe/styling-photos" && method === "GET") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const result = await db.query(`
+        SELECT sp.*, 
+          json_agg(
+            jsonb_build_object('id', wsi.id, 'wardrobe_item_id', wsi.wardrobe_item_id, 'item', row_to_json(wi))
+          ) FILTER (WHERE wsi.id IS NOT NULL) as worn_items
+        FROM wardrobe_styling_photos sp
+        LEFT JOIN wardrobe_styling_items wsi ON sp.id = wsi.styling_photo_id
+        LEFT JOIN wardrobe_items wi ON wsi.wardrobe_item_id = wi.id
+        WHERE sp.cognito_user_id = $1
+        GROUP BY sp.id
+        ORDER BY sp.created_at DESC
+      `, [userId]);
+      return response(200, result.rows);
+    }
+
+    // 作成
+    if (path === "/v1/wardrobe/styling-photos" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { image_url, title, notes, worn_item_ids } = parsedBody;
+
+      const photoResult = await db.query(`
+        INSERT INTO wardrobe_styling_photos (cognito_user_id, image_url, title, notes)
+        VALUES ($1, $2, $3, $4) RETURNING *
+      `, [userId, image_url, title, notes]);
+
+      const photo = photoResult.rows[0];
+
+      // 関連アイテムを追加
+      if (worn_item_ids && worn_item_ids.length > 0) {
+        for (const itemId of worn_item_ids) {
+          await db.query(`
+            INSERT INTO wardrobe_styling_items (styling_photo_id, wardrobe_item_id)
+            VALUES ($1, $2)
+          `, [photo.id, itemId]);
+        }
+      }
+
+      return response(200, photo);
+    }
+
+    // 削除
+    if (path.match(/^\/v1\/wardrobe\/styling-photos\/[\w-]+$/) && method === "DELETE") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      await db.query("DELETE FROM wardrobe_styling_photos WHERE id = $1 AND cognito_user_id = $2", [id, userId]);
+      return response(200, { success: true });
+    }
+
+    // ==================== 足の測定 ====================
+    // 一覧取得
+    if (path === "/v1/wardrobe/foot-measurements" && method === "GET") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const result = await db.query(`
+        SELECT * FROM foot_measurements 
+        WHERE cognito_user_id = $1 
+        ORDER BY measurement_date DESC
+      `, [userId]);
+      return response(200, result.rows);
+    }
+
+    // 作成
+    if (path === "/v1/wardrobe/foot-measurements" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { foot_type, length_mm, width_mm, arch_height_mm, instep_height_mm, scan_image_url } = parsedBody;
+
+      const result = await db.query(`
+        INSERT INTO foot_measurements (cognito_user_id, foot_type, length_mm, width_mm, arch_height_mm, instep_height_mm, scan_image_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+      `, [userId, foot_type, length_mm, width_mm, arch_height_mm, instep_height_mm, scan_image_url]);
+      return response(200, result.rows[0]);
+    }
+
+    // 更新 (is_active)
+    if (path.match(/^\/v1\/wardrobe\/foot-measurements\/[\w-]+$/) && method === "PUT") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      const parsedBody = JSON.parse(body || "{}");
+      const { is_active } = parsedBody;
+
+      const result = await db.query(`
+        UPDATE foot_measurements SET is_active = $1 
+        WHERE id = $2 AND cognito_user_id = $3 RETURNING *
+      `, [is_active, id, userId]);
+      if (result.rows.length === 0) return response(404, { error: "Measurement not found" });
+      return response(200, result.rows[0]);
+    }
+
+    // 削除
+    if (path.match(/^\/v1\/wardrobe\/foot-measurements\/[\w-]+$/) && method === "DELETE") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      await db.query("DELETE FROM foot_measurements WHERE id = $1 AND cognito_user_id = $2", [id, userId]);
+      return response(200, { success: true });
+    }
+
+    // ==================== ブランドサイズマッピング ====================
+    // 一覧取得
+    if (path === "/v1/wardrobe/brand-size-mappings" && method === "GET") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const result = await db.query(`
+        SELECT * FROM brand_size_mappings 
+        WHERE cognito_user_id = $1 
+        ORDER BY created_at DESC
+      `, [userId]);
+      return response(200, result.rows);
+    }
+
+    // 作成
+    if (path === "/v1/wardrobe/brand-size-mappings" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { brand_name, size, size_system, numeric_size, fit_rating, comfort_rating, notes } = parsedBody;
+
+      const result = await db.query(`
+        INSERT INTO brand_size_mappings (cognito_user_id, brand_name, size, size_system, numeric_size, fit_rating, comfort_rating, notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *
+      `, [userId, brand_name, size, size_system, numeric_size, fit_rating || 3, comfort_rating || 3, notes]);
+      return response(200, result.rows[0]);
+    }
+
+    // 更新
+    if (path.match(/^\/v1\/wardrobe\/brand-size-mappings\/[\w-]+$/) && method === "PUT") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      const parsedBody = JSON.parse(body || "{}");
+      const fields = [];
+      const values = [];
+      let paramIndex = 1;
+
+      const allowedFields = ["brand_name", "size", "size_system", "numeric_size", "fit_rating", "comfort_rating", "notes"];
+      for (const field of allowedFields) {
+        if (parsedBody[field] !== undefined) {
+          fields.push(`${field} = $${paramIndex}`);
+          values.push(parsedBody[field]);
+          paramIndex++;
+        }
+      }
+
+      if (fields.length === 0) {
+        return response(400, { error: "更新するフィールドがありません" });
+      }
+
+      values.push(id);
+      values.push(userId);
+      const result = await db.query(
+        `UPDATE brand_size_mappings SET ${fields.join(", ")} 
+         WHERE id = $${paramIndex} AND cognito_user_id = $${paramIndex + 1} RETURNING *`,
+        values
+      );
+      if (result.rows.length === 0) return response(404, { error: "Mapping not found" });
+      return response(200, result.rows[0]);
+    }
+
+    // 削除
+    if (path.match(/^\/v1\/wardrobe\/brand-size-mappings\/[\w-]+$/) && method === "DELETE") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const id = path.split("/").pop();
+      await db.query("DELETE FROM brand_size_mappings WHERE id = $1 AND cognito_user_id = $2", [id, userId]);
+      return response(200, { success: true });
+    }
+
+    // ==================== WARDROBE 画像アップロード用URL ====================
     if (path === "/v1/wardrobe/upload-url" && method === "POST") {
-      const { filename, contentType } = JSON.parse(body || "{}");
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { filename, contentType } = parsedBody;
       
       if (!filename || !contentType) {
         return response(400, { error: "filename and contentType are required" });
       }
-
-      const userId = getUserId(event);
-      if (!userId) {
-        return response(401, { error: "認証が必要です" });
-      }
-
-      const key = `wardrobe/${userId}/${Date.now()}-${filename}`;
       
-      const command = new PutObjectCommand({
-        Bucket: S3_BUCKET,
-        Key: key,
-        ContentType: contentType,
-      });
-
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 15);
+      const ext = filename.split('.').pop();
+      const key = `wardrobe/${userId}/${timestamp}-${randomId}.${ext}`;
+      
       try {
-        const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-        const publicUrl = `https://${process.env.CLOUDFRONT_DOMAIN || 'd8l6v2r98r1en.cloudfront.net'}/${key}`;
+        const command = new PutObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: key,
+          ContentType: contentType,
+        });
         
-        return response(200, { uploadUrl, publicUrl });
+        const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+        const CLOUDFRONT_DOMAIN = process.env.CLOUDFRONT_DOMAIN || "d8l6v2r98r1en.cloudfront.net";
+        const publicUrl = `https://${CLOUDFRONT_DOMAIN}/${key}`;
+        
+        return response(200, {
+          uploadUrl,
+          publicUrl,
+          key,
+        });
       } catch (error) {
-        console.error("S3 signed URL error:", error);
+        console.error("Error generating presigned URL:", error);
         return response(500, { error: "Failed to generate upload URL" });
+      }
+    }
+
+    // ==================== WARDROBE 商品URLスクレイピング (Gemini API) ====================
+    if (path === "/v1/wardrobe/scrape-url" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { url } = parsedBody;
+      
+      if (!url) {
+        return response(400, { error: "url is required" });
+      }
+      
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+      
+      if (!GEMINI_API_KEY) {
+        // Gemini API未設定の場合はURLからドメイン名を抽出してモックデータを返す
+        const urlObj = new URL(url);
+        const domain = urlObj.hostname.replace('www.', '').split('.')[0];
+        return response(200, {
+          name: 'URLから取得した商品',
+          brand: domain.charAt(0).toUpperCase() + domain.slice(1),
+          price: '',
+          currency: 'JPY',
+          description: `${url} から取得（Gemini API未設定）`,
+          source_url: url,
+        });
+      }
+      
+      try {
+        // URLのページ内容を取得
+        const pageRes = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        });
+        const html = await pageRes.text();
+        
+        // HTMLから主要なテキストを抽出（簡略化）
+        const textContent = html
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .substring(0, 10000); // Gemini APIへの入力を制限
+        
+        // Gemini APIで商品情報を抽出
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `以下のウェブページから商品情報を抽出してJSON形式で返してください。
+商品が見つからない場合は空のオブジェクトを返してください。
+
+抽出する情報:
+- name: 商品名
+- brand: ブランド名
+- price: 価格（数字のみ）
+- currency: 通貨（JPY, USD, EUR等）
+- description: 商品説明（100文字以内）
+- default_image_url: デフォルト商品画像のURL
+- available_colors: 利用可能なカラーの配列。各要素は { "name": "カラー名", "code": "#HEX色コード（わかれば、なければnull）", "image_url": "そのカラーの商品画像URL（あれば、なければnull）" }
+- available_sizes: 利用可能なサイズの配列（例: ["S", "M", "L"] または ["25.0cm", "25.5cm", "26.0cm"]）
+
+重要: 複数のカラーやサイズがある場合は、全ての選択肢を配列で返してください。
+JSONのみを返してください。他の説明は不要です。
+
+ウェブページ内容:
+${textContent}
+
+URL: ${url}`
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 2048,
+              }
+            }),
+          }
+        );
+        
+        if (!geminiRes.ok) {
+          throw new Error('Gemini API error');
+        }
+        
+        const geminiData = await geminiRes.json();
+        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        
+        // JSONを抽出（マークダウンコードブロックを除去）
+        let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const productData = JSON.parse(jsonStr);
+        
+        return response(200, {
+          ...productData,
+          source_url: url,
+        });
+        
+      } catch (error) {
+        console.error("Error scraping URL:", error);
+        return response(500, { error: "商品情報の取得に失敗しました: " + error.message });
+      }
+    }
+
+    // ==================== WARDROBE タグ画像からの情報抽出 (Gemini Vision) ====================
+    if (path === "/v1/wardrobe/extract-tag" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { imageBase64 } = parsedBody;
+      
+      if (!imageBase64) {
+        return response(400, { error: "imageBase64 is required" });
+      }
+      
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+      
+      if (!GEMINI_API_KEY) {
+        return response(200, {
+          brand: '不明',
+          size: '',
+          materials: '',
+          care_instructions: '',
+          message: 'Gemini API未設定のため、手動で入力してください',
+        });
+      }
+      
+      try {
+        // Base64データからプレフィックスを除去
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  {
+                    text: `この衣類タグの画像から情報を抽出してJSON形式で返してください。
+
+抽出する情報:
+- brand: ブランド名
+- size: サイズ（S, M, L, XL, 数値等）
+- category: カテゴリー（トップス/アウター/パンツ/シューズ等）
+- materials: 素材（例: 綿100%、ポリエステル80%綿20%）
+- care_instructions: 洗濯表示（例: 手洗い、ドライクリーニング）
+- color: 色（読み取れれば）
+- made_in: 生産国（読み取れれば）
+
+JSONのみを返してください。読み取れない項目は空文字にしてください。`
+                  },
+                  {
+                    inline_data: {
+                      mime_type: 'image/jpeg',
+                      data: base64Data
+                    }
+                  }
+                ]
+              }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 1024,
+              }
+            }),
+          }
+        );
+        
+        if (!geminiRes.ok) {
+          throw new Error('Gemini API error');
+        }
+        
+        const geminiData = await geminiRes.json();
+        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        
+        let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const tagData = JSON.parse(jsonStr);
+        
+        return response(200, tagData);
+        
+      } catch (error) {
+        console.error("Error extracting tag info:", error);
+        return response(500, { error: "タグ情報の読み取りに失敗しました: " + error.message });
       }
     }
 

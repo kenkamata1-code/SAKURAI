@@ -51,6 +51,14 @@ export default function AdminDashboard() {
       path: '/admin/orders',
       color: 'border-gray-900',
     },
+    {
+      title: 'ワードローブ',
+      subtitle: 'Wardrobe Management',
+      description: 'ワードローブアイテムの管理、スタイリング、サイズ推奨',
+      icon: Shirt,
+      path: '/admin/wardrobe',
+      color: 'border-gray-900',
+    },
   ];
 
   return (

@@ -26,7 +26,7 @@ function HeroSection() {
         <div className="grid md:grid-cols-2">
           <div className="relative aspect-[4/3] md:aspect-[3/2] overflow-hidden">
             <img
-              src="/image.png"
+              src="/hero-left.png"
               alt="Product"
               className="w-full h-full object-cover"
             />
@@ -34,7 +34,7 @@ function HeroSection() {
 
           <div className="relative aspect-[4/3] md:aspect-[3/2] overflow-hidden">
             <img
-              src="/image copy.png"
+              src="/hero-right.png"
               alt="Product"
               className="w-full h-full object-cover"
             />
@@ -91,14 +91,14 @@ function ConceptSection() {
           <div className="lg:col-span-3 grid grid-cols-2 gap-6 mt-20">
             <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 rounded-sm overflow-hidden">
               <img
-                src="/image copy copy copy.png"
+                src="/concept-left.png"
                 alt="Concept"
                 className="w-full h-full object-cover"
               />
             </div>
             <div className="aspect-[3/4] bg-gradient-to-br from-gray-800 to-gray-900 rounded-sm overflow-hidden">
               <img
-                src="/image copy copy copy copy.png"
+                src="/concept-right.png"
                 alt="Concept"
                 className="w-full h-full object-cover"
               />
@@ -309,7 +309,7 @@ function BrandSection() {
                     />
                   ) : brand.image === 'design' ? (
                     <img
-                      src="/image copy copy copy copy copy copy copy copy copy copy copy copy copy copy copy copy copy copy copy.png"
+                      src="/design-02.png"
                       alt={brand.label}
                       className="w-full h-full object-cover"
                     />
