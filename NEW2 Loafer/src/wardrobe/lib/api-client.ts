@@ -5,6 +5,7 @@
  */
 
 import { fetchAuthSession } from 'aws-amplify/auth';
+import heic2any from 'heic2any';
 import type {
   WardrobeItem,
   StylingPhoto,
@@ -15,6 +16,28 @@ import type {
   TagExtractionResult,
   ApiResponse,
 } from '../types';
+
+// HEIC/HEIFをJPEGに変換
+async function convertHeicToJpeg(file: File): Promise<File> {
+  if (file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+    console.log('🔄 Converting HEIC to JPEG...');
+    try {
+      const blob = await heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: 0.9,
+      });
+      const jpegBlob = Array.isArray(blob) ? blob[0] : blob;
+      const newFileName = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
+      console.log('✅ HEIC conversion complete:', newFileName);
+      return new File([jpegBlob], newFileName, { type: 'image/jpeg' });
+    } catch (error) {
+      console.error('❌ HEIC conversion failed:', error);
+      throw new Error('HEIC画像の変換に失敗しました');
+    }
+  }
+  return file;
+}
 
 // API設定 (aws-configから取得)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://3eal2nthgc.execute-api.ap-northeast-1.amazonaws.com/v1';
@@ -356,12 +379,15 @@ class AWSApiClient {
     try {
       console.log('📤 Starting image upload...', { userId, fileName: file.name, type: file.type });
       
+      // HEIC/HEIFの場合はJPEGに変換
+      const processedFile = await convertHeicToJpeg(file);
+      
       // 署名付きURLを取得
       const urlRes = await authFetch(`${API_BASE_URL}/wardrobe/upload-url`, {
         method: 'POST',
         body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
+          filename: processedFile.name,
+          contentType: processedFile.type,
         }),
       });
 
@@ -380,9 +406,9 @@ class AWSApiClient {
       console.log('📤 Uploading to S3...');
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
-        body: file,
+        body: processedFile,
         headers: {
-          'Content-Type': file.type,
+          'Content-Type': processedFile.type,
         },
       });
 
