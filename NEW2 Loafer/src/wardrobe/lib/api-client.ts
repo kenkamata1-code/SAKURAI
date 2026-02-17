@@ -354,6 +354,8 @@ class AWSApiClient {
   // ==================== File Upload (S3) ====================
   async uploadImage(userId: string, file: File, bucket: string): Promise<ApiResponse<string>> {
     try {
+      console.log('📤 Starting image upload...', { userId, fileName: file.name, type: file.type });
+      
       // 署名付きURLを取得
       const urlRes = await authFetch(`${API_BASE_URL}/wardrobe/upload-url`, {
         method: 'POST',
@@ -363,14 +365,19 @@ class AWSApiClient {
         }),
       });
 
+      console.log('📋 Upload URL response status:', urlRes.status);
+
       if (!urlRes.ok) {
         const error = await urlRes.json();
+        console.error('❌ Failed to get upload URL:', error);
         return { data: null, error: new Error(error.error || 'Failed to get upload URL') };
       }
 
       const { uploadUrl, publicUrl } = await urlRes.json();
+      console.log('✅ Got upload URL:', { publicUrl });
 
       // S3に直接アップロード
+      console.log('📤 Uploading to S3...');
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
@@ -379,7 +386,10 @@ class AWSApiClient {
         },
       });
 
+      console.log('📦 S3 upload response status:', uploadRes.status);
+
       if (!uploadRes.ok) {
+        console.error('❌ S3 upload failed:', uploadRes.status, uploadRes.statusText);
         return { data: null, error: new Error('Failed to upload image to S3') };
       }
 
