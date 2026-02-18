@@ -1560,12 +1560,39 @@ export const handler = async (event) => {
         // URLのページ内容を取得
         const pageRes = await fetch(url, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
           },
         });
         console.log("Page fetch status:", pageRes.status);
         const html = await pageRes.text();
         console.log("HTML length:", html.length);
+        
+        // HTMLから画像URLを抽出
+        const imageUrls = [];
+        const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+        let match;
+        while ((match = imgRegex.exec(html)) !== null && imageUrls.length < 20) {
+          let imgSrc = match[1];
+          // 相対URLを絶対URLに変換
+          if (imgSrc.startsWith('//')) {
+            imgSrc = 'https:' + imgSrc;
+          } else if (imgSrc.startsWith('/')) {
+            const urlObj = new URL(url);
+            imgSrc = urlObj.origin + imgSrc;
+          } else if (!imgSrc.startsWith('http')) {
+            const urlObj = new URL(url);
+            imgSrc = urlObj.origin + '/' + imgSrc;
+          }
+          // 小さいアイコンやトラッキング画像を除外
+          if (!imgSrc.includes('tracking') && !imgSrc.includes('pixel') && 
+              !imgSrc.includes('.gif') && !imgSrc.includes('icon') &&
+              !imgSrc.includes('logo') && !imgSrc.includes('badge')) {
+            imageUrls.push(imgSrc);
+          }
+        }
+        console.log("Found image URLs:", imageUrls.length);
         
         // HTMLから主要なテキストを抽出（簡略化）
         const textContent = html
@@ -1573,7 +1600,7 @@ export const handler = async (event) => {
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
-          .substring(0, 10000); // Gemini APIへの入力を制限
+          .substring(0, 8000); // Gemini APIへの入力を制限
         
         // Gemini APIで商品情報を抽出
         const geminiRes = await fetch(
@@ -1593,12 +1620,17 @@ export const handler = async (event) => {
 - price: 価格（数字のみ）
 - currency: 通貨（JPY, USD, EUR等）
 - description: 商品説明（100文字以内）
-- default_image_url: デフォルト商品画像のURL
-- available_colors: 利用可能なカラーの配列。各要素は { "name": "カラー名", "code": "#HEX色コード（わかれば、なければnull）", "image_url": "そのカラーの商品画像URL（あれば、なければnull）" }
+- default_image_url: メイン商品画像のURL（下記の画像リストから最も適切なものを選んでください）
+- available_colors: 利用可能なカラーの配列。各要素は { "name": "カラー名", "code": "#HEX色コード（わかれば、なければnull）", "image_url": "そのカラーの商品画像URL（下記リストから選択、なければnull）" }
 - available_sizes: 利用可能なサイズの配列（例: ["S", "M", "L"] または ["25.0cm", "25.5cm", "26.0cm"]）
 
-重要: 複数のカラーやサイズがある場合は、全ての選択肢を配列で返してください。
-JSONのみを返してください。他の説明は不要です。
+ページ内で見つかった画像URL一覧:
+${imageUrls.slice(0, 10).join('\n')}
+
+重要: 
+- 画像URLは上記リストから商品画像として最も適切なものを選んでください
+- 複数のカラーやサイズがある場合は、全ての選択肢を配列で返してください
+- JSONのみを返してください。他の説明は不要です
 
 ウェブページ内容:
 ${textContent}

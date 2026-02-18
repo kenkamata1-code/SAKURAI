@@ -33,6 +33,12 @@ interface AddItemModalProps {
   editingItem?: WardrobeItem | null;
 }
 
+// 今日の日付をYYYY-MM-DD形式で取得
+const getTodayDate = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
 export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: AddItemModalProps) {
   const { user } = useAuth();
   const [addMethod, setAddMethod] = useState<'url' | 'manual' | 'tag'>('manual');
@@ -51,7 +57,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
     size: editingItem?.size || '',
     color: editingItem?.color || '',
     category: editingItem?.category || 'シューズ',
-    purchase_date: editingItem?.purchase_date || '',
+    purchase_date: editingItem?.purchase_date || getTodayDate(), // デフォルトは今日の日付
     purchase_price: editingItem?.purchase_price?.toString() || '',
     currency: editingItem?.currency || 'JPY',
     purchase_location: editingItem?.purchase_location || '',
