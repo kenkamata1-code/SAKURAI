@@ -7,6 +7,7 @@ import type { WardrobeItem, FootMeasurement } from './types';
 import ItemCard from './components/ItemCard';
 import AddItemModal from './components/AddItemModal';
 import ImageUpload from './components/ImageUpload';
+import AIAssistantView from './components/AIAssistantView';
 import { KPICard, BarChart, PieChart, TimeRangeSelector, AIInsightCard, type TimeRange } from './components/dashboard';
 import { apiClient } from './lib/api-client';
 
@@ -551,93 +552,14 @@ export default function WardrobePage() {
 
         {/* AI Assistantビュー */}
         {viewMode === 'ai-assistant' && (
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h2 className="text-2xl tracking-wider font-light mb-2">AI ASSISTANT</h2>
-              <p className="text-gray-600 text-sm">
-                自然言語でワードローブに商品を登録できます
-              </p>
-            </div>
-            
-            <div className="border border-gray-200 bg-gray-50 h-96 overflow-y-auto p-4 mb-4">
-              {aiMessages.length === 0 ? (
-                <div className="text-center text-gray-400 mt-20">
-                  <Bot className="w-12 h-12 mx-auto mb-4" />
-                  <p>メッセージを入力してください</p>
-                  <p className="text-sm mt-2">例: 「白いナイキのスニーカーを15000円で購入しました」</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {aiMessages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] p-3 ${
-                        msg.role === 'user' 
-                          ? 'bg-gray-900 text-white' 
-                          : 'bg-white border border-gray-200'
-                      }`}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
-                  {aiLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-white border border-gray-200 p-3">
-                        <span className="animate-pulse">考え中...</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={aiInput}
-                onChange={(e) => setAiInput(e.target.value)}
-                placeholder="メッセージを入力..."
-                className="flex-1 px-4 py-3 border border-gray-300 focus:outline-none focus:border-gray-900"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    // AI処理（将来実装）
-                    if (aiInput.trim()) {
-                      setAiMessages(prev => [...prev, { role: 'user', content: aiInput }]);
-                      setAiLoading(true);
-                      setTimeout(() => {
-                        setAiMessages(prev => [...prev, { 
-                          role: 'assistant', 
-                          content: 'この機能はGemini APIキーを設定すると利用可能になります。現在は手動でアイテムを追加してください。' 
-                        }]);
-                        setAiLoading(false);
-                      }, 1000);
-                      setAiInput('');
-                    }
-                  }
-                }}
-              />
-              <button
-                onClick={() => {
-                  if (aiInput.trim()) {
-                    setAiMessages(prev => [...prev, { role: 'user', content: aiInput }]);
-                    setAiLoading(true);
-                    setTimeout(() => {
-                      setAiMessages(prev => [...prev, { 
-                        role: 'assistant', 
-                        content: 'この機能はGemini APIキーを設定すると利用可能になります。現在は手動でアイテムを追加してください。' 
-                      }]);
-                      setAiLoading(false);
-                    }, 1000);
-                    setAiInput('');
-                  }
-                }}
-                disabled={aiLoading || !aiInput.trim()}
-                className="px-6 py-3 bg-gray-900 text-white hover:bg-gray-800 transition disabled:bg-gray-400"
-              >
-                送信
-              </button>
-            </div>
-          </div>
+          <AIAssistantView 
+            aiMessages={aiMessages}
+            setAiMessages={setAiMessages}
+            aiInput={aiInput}
+            setAiInput={setAiInput}
+            aiLoading={aiLoading}
+            setAiLoading={setAiLoading}
+          />
         )}
 
         {/* 足の測定ビュー */}
