@@ -3,13 +3,15 @@ import { Plus, Package, Image as ImageIcon, BarChart3, Bot, Footprints, Sparkles
 import { useAuth } from '../contexts/AuthContext';
 import { useWardrobeStore, useStylingStore, useUIStore, useMeasurementStore } from './lib/store';
 import { CATEGORIES, CATEGORY_LABELS } from './types';
-import type { WardrobeItem, FootMeasurement } from './types';
+import type { WardrobeItem, FootMeasurement, StylingPhoto } from './types';
 import ItemCard from './components/ItemCard';
 import AddItemModal from './components/AddItemModal';
 import ImageUpload from './components/ImageUpload';
 import AIAssistantView from './components/AIAssistantView';
 import SalesDashboard from './components/SalesDashboard';
 import PortfolioAnalysis from './components/PortfolioAnalysis';
+import StylingModal from './components/StylingModal';
+import StylingDetailModal from './components/StylingDetailModal';
 import { KPICard, BarChart, PieChart as DashboardPieChart, TimeRangeSelector, AIInsightCard, type TimeRange } from './components/dashboard';
 import { apiClient } from './lib/api-client';
 
@@ -48,12 +50,11 @@ export default function WardrobePage() {
   const [categoryRange, setCategoryRange] = useState<TimeRange>('1M');
   const [brandRange, setBrandRange] = useState<TimeRange>('1M');
   
-  // スタイリング追加用
-  const [stylingImage, setStylingImage] = useState<string | null>(null);
-  const [stylingTitle, setStylingTitle] = useState('');
-  const [stylingNotes, setStylingNotes] = useState('');
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  // スタイリング用
   const [stylingLoading, setStylingLoading] = useState(false);
+  const [editingStyling, setEditingStyling] = useState<StylingPhoto | null>(null);
+  const [selectedStyling, setSelectedStyling] = useState<StylingPhoto | null>(null);
+  const [showStylingDetail, setShowStylingDetail] = useState(false);
   
   // 足測定用
   const [footForm, setFootForm] = useState({
@@ -128,65 +129,76 @@ export default function WardrobePage() {
     setSellingItem(item);
   };
 
-  // スタイリング写真の追加
-  const handleAddStylingPhoto = async () => {
-    if (!user || !stylingImage) return;
+  // スタイリング写真の追加/更新
+  const handleSaveStylingPhoto = async (
+    data: { image_url: string; title?: string; notes?: string },
+    selectedItemIds: string[]
+  ) => {
+    if (!user) return;
     
     setStylingLoading(true);
     try {
-      await addPhoto(user.id, {
-        image_url: stylingImage,
-        title: stylingTitle || undefined,
-        notes: stylingNotes || undefined,
-      }, selectedItemIds);
+      if (editingStyling) {
+        // 更新処理（TODO: updatePhoto関数をstoreに追加する必要あり）
+        // 現在は削除して再追加で対応
+        await deletePhoto(editingStyling.id);
+        await addPhoto(user.id, data, selectedItemIds);
+      } else {
+        await addPhoto(user.id, data, selectedItemIds);
+      }
       
-      // リセット
-      setStylingImage(null);
-      setStylingTitle('');
-      setStylingNotes('');
-      setSelectedItemIds([]);
+      setEditingStyling(null);
       setShowStylingModal(false);
     } catch (error) {
-      console.error('Error adding styling photo:', error);
-      alert('スタイリング写真の追加に失敗しました');
+      console.error('Error saving styling photo:', error);
+      alert('スタイリング写真の保存に失敗しました');
     } finally {
       setStylingLoading(false);
     }
   };
 
-  const handleStylingImageSelect = async (file: File) => {
-    if (!user) return;
-    
-    // まずローカルプレビューを表示
-    const localPreview = URL.createObjectURL(file);
-    setStylingImage(localPreview);
-    setStylingLoading(true);
+  // スタイリング画像のアップロード
+  const handleStylingImageUpload = async (file: File): Promise<string | null> => {
+    if (!user) return null;
     
     try {
       console.log('📤 Starting styling image upload...');
       const result = await apiClient.uploadImage(user.id, file, 'styling-photos');
       if (result.data) {
         console.log('✅ Upload success:', result.data);
-        setStylingImage(result.data);
-        // ローカルプレビューのURLを解放
-        URL.revokeObjectURL(localPreview);
+        return result.data;
       } else if (result.error) {
         console.error('❌ Upload error:', result.error);
         alert('画像のアップロードに失敗しました: ' + result.error.message);
-        setStylingImage(null);
+        return null;
       }
     } catch (error) {
       console.error('Error uploading image:', error);
       alert('画像のアップロードに失敗しました');
-      setStylingImage(null);
-    } finally {
-      setStylingLoading(false);
     }
+    return null;
   };
 
+  // スタイリング写真の削除
   const handleDeleteStylingPhoto = async (id: string) => {
-    if (!confirm('このスタイリング写真を削除しますか？')) return;
     await deletePhoto(id);
+    setShowStylingDetail(false);
+    setSelectedStyling(null);
+  };
+
+  // スタイリング詳細を開く
+  const handleOpenStylingDetail = (photo: StylingPhoto) => {
+    setSelectedStyling(photo);
+    setShowStylingDetail(true);
+  };
+
+  // スタイリング編集を開く
+  const handleEditStyling = () => {
+    if (selectedStyling) {
+      setEditingStyling(selectedStyling);
+      setShowStylingDetail(false);
+      setShowStylingModal(true);
+    }
   };
 
   // 足測定の追加
@@ -406,9 +418,16 @@ export default function WardrobePage() {
         {/* スタイリングビュー */}
         {viewMode === 'styling' && (
           <div>
-            <div className="flex gap-4 mb-8">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl tracking-wider font-light">スタイリング / Styling</h2>
+                <p className="text-sm text-gray-500 mt-1">{photos.length} photos</p>
+              </div>
               <button
-                onClick={() => setShowStylingModal(true)}
+                onClick={() => {
+                  setEditingStyling(null);
+                  setShowStylingModal(true);
+                }}
                 className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white hover:bg-gray-800 transition"
               >
                 <Plus className="w-5 h-5" />
@@ -416,34 +435,35 @@ export default function WardrobePage() {
               </button>
             </div>
 
-            <h2 className="text-2xl tracking-wider font-light mb-6">スタイリング写真</h2>
             {photos.length === 0 ? (
-              <div className="text-center py-12 border border-gray-200">
+              <div className="text-center py-16 border border-gray-200">
+                <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500">スタイリング写真が登録されていません</p>
                 <p className="text-sm text-gray-400 mt-2">「スタイリング写真を追加」ボタンから登録してください</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {photos.map((photo) => (
-                  <div key={photo.id} className="group relative bg-gray-100 overflow-hidden border border-gray-200">
-                    <div className="aspect-square">
+                  <div
+                    key={photo.id}
+                    className="group relative bg-gray-100 overflow-hidden border border-gray-200 cursor-pointer hover:border-gray-400 transition"
+                    onClick={() => handleOpenStylingDetail(photo)}
+                  >
+                    <div className="aspect-[3/4]">
                       <img
                         src={photo.image_url}
                         alt={photo.title || 'Styling photo'}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    {photo.title && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-80 text-white p-2 text-xs">
-                        {photo.title}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => handleDeleteStylingPhoto(photo.id)}
-                      className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                      <p className="text-white text-sm font-medium truncate">
+                        {photo.title || 'Untitled'}
+                      </p>
+                      <p className="text-white/70 text-xs">
+                        {photo.worn_items?.length || 0} items
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -948,107 +968,32 @@ export default function WardrobePage() {
         editingItem={editingItem}
       />
 
-      {/* スタイリング追加モーダル */}
-      {showStylingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6">
-          <div className="bg-white max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
-              <h2 className="text-2xl tracking-wider font-light">スタイリング写真を追加</h2>
-              <button onClick={() => setShowStylingModal(false)} className="text-gray-500 hover:text-gray-700">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+      {/* スタイリング追加/編集モーダル */}
+      <StylingModal
+        isOpen={showStylingModal}
+        onClose={() => {
+          setShowStylingModal(false);
+          setEditingStyling(null);
+        }}
+        onSave={handleSaveStylingPhoto}
+        items={items}
+        editingPhoto={editingStyling}
+        onImageSelect={handleStylingImageUpload}
+        loading={stylingLoading}
+      />
 
-            <div className="p-6 space-y-6">
-              {/* 画像アップロード */}
-              <div>
-                <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
-                  <Upload className="w-4 h-4" />
-                  スタイリング写真 *
-                </label>
-                {stylingImage ? (
-                  <div className="relative w-full max-w-md mx-auto">
-                    <img src={stylingImage} alt="Styling" className="w-full aspect-square object-cover border border-gray-200" />
-                    <button
-                      type="button"
-                      onClick={() => setStylingImage(null)}
-                      className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <ImageUpload onImageSelect={handleStylingImageSelect} currentImage={null} />
-                )}
-                {stylingLoading && <p className="text-sm text-gray-500 mt-2">アップロード中...</p>}
-              </div>
-
-              {/* タイトル */}
-              <div>
-                <label className="block text-sm tracking-wider mb-2">タイトル</label>
-                <input
-                  type="text"
-                  value={stylingTitle}
-                  onChange={(e) => setStylingTitle(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900"
-                  placeholder="例: 春のカジュアルコーデ"
-                />
-              </div>
-
-              {/* メモ */}
-              <div>
-                <label className="block text-sm tracking-wider mb-2">メモ</label>
-                <textarea
-                  value={stylingNotes}
-                  onChange={(e) => setStylingNotes(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900 min-h-[100px]"
-                  placeholder="このコーディネートについてのメモ..."
-                />
-              </div>
-
-              {/* 着用アイテム選択 */}
-              {items.length > 0 && (
-                <div>
-                  <label className="block text-sm tracking-wider mb-2">着用アイテム（任意）</label>
-                  <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-200 p-2">
-                    {items.filter(i => !i.is_discarded).map(item => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedItemIds(prev => 
-                            prev.includes(item.id) 
-                              ? prev.filter(id => id !== item.id)
-                              : [...prev, item.id]
-                          );
-                        }}
-                        className={`p-2 text-xs text-left border transition ${
-                          selectedItemIds.includes(item.id)
-                            ? 'border-gray-900 bg-gray-100'
-                            : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        {item.image_url && (
-                          <img src={item.image_url} alt="" className="w-full aspect-square object-cover mb-1" />
-                        )}
-                        <p className="truncate">{item.name}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleAddStylingPhoto}
-                disabled={stylingLoading || !stylingImage}
-                className="w-full px-6 py-3 bg-gray-900 text-white hover:bg-gray-800 transition disabled:bg-gray-400"
-              >
-                {stylingLoading ? '保存中...' : '追加'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* スタイリング詳細モーダル */}
+      <StylingDetailModal
+        isOpen={showStylingDetail}
+        onClose={() => {
+          setShowStylingDetail(false);
+          setSelectedStyling(null);
+        }}
+        photo={selectedStyling}
+        items={items}
+        onEdit={handleEditStyling}
+        onDelete={() => selectedStyling && handleDeleteStylingPhoto(selectedStyling.id)}
+      />
     </div>
   );
 }
