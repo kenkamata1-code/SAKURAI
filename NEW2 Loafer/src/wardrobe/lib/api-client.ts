@@ -374,6 +374,28 @@ class AWSApiClient {
     }
   }
 
+  // 商品画像を分析してワードローブ登録用データを取得
+  async analyzeProductImage(imageBase64: string): Promise<ApiResponse<ScrapedProductData>> {
+    try {
+      console.log('🔍 Analyzing product image...');
+      const res = await authFetch(`${API_BASE_URL}/wardrobe/analyze-image`, {
+        method: 'POST',
+        body: JSON.stringify({ imageBase64 }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        console.error('❌ Image analysis failed:', error);
+        return { data: null, error: new Error(error.error || 'Failed to analyze image') };
+      }
+      const data = await res.json();
+      console.log('✅ Image analysis complete:', data);
+      return { data, error: null };
+    } catch (error) {
+      console.error('❌ Image analysis error:', error);
+      return { data: null, error: error as Error };
+    }
+  }
+
   // ==================== File Upload (S3) ====================
   async uploadImage(userId: string, file: File, bucket: string): Promise<ApiResponse<string>> {
     try {

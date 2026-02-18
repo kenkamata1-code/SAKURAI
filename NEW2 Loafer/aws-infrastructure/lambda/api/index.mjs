@@ -1728,6 +1728,107 @@ JSONのみを返してください。読み取れない項目は空文字にし�
       }
     }
 
+    // ==================== 商品画像分析 (Gemini Vision) ====================
+    if (path === "/v1/wardrobe/analyze-image" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+      
+      const parsedBody = JSON.parse(body || "{}");
+      const { imageBase64 } = parsedBody;
+      
+      if (!imageBase64) {
+        return response(400, { error: "imageBase64 is required" });
+      }
+      
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+      
+      if (!GEMINI_API_KEY) {
+        return response(200, {
+          name: '不明な商品',
+          brand: null,
+          category: 'シューズ',
+          color: null,
+          price: null,
+          description: 'Gemini API未設定のため、手動で入力してください',
+        });
+      }
+      
+      try {
+        // Base64データからプレフィックスを除去
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        
+        console.log('📸 Analyzing product image with Gemini...');
+        
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  {
+                    text: `この商品画像を分析して、ワードローブに登録するための情報をJSON形式で返してください。
+
+ネット上の商品データベースや知識を活用して、できるだけ正確な情報を提供してください。
+
+抽出・推定する情報:
+- name: 商品名（ブランド名 + モデル名。例: "Nike Air Max 90"）
+- brand: ブランド名（Nike, Adidas, New Balance等）
+- category: カテゴリー（以下から選択: トップス, アウター／ジャケット, パンツ, その他（スーツ／ワンピース等）, バッグ, シューズ, アクセサリー／小物）
+- color: 色（例: ブラック/ホワイト, ネイビー）
+- price: 推定価格（日本円、数字のみ。例: 15000）
+- currency: 通貨（JPY）
+- description: 商品の説明（素材、特徴など、50文字以内）
+
+重要:
+- 商品名は具体的なモデル名まで特定してください
+- 価格は日本での一般的な販売価格を推定してください
+- 不明な場合はnullを返してください
+
+JSONのみを返してください。`
+                  },
+                  {
+                    inline_data: {
+                      mime_type: 'image/jpeg',
+                      data: base64Data
+                    }
+                  }
+                ]
+              }],
+              generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 1024,
+              }
+            }),
+          }
+        );
+        
+        console.log('📡 Gemini response status:', geminiRes.status);
+        
+        if (!geminiRes.ok) {
+          const errorText = await geminiRes.text();
+          console.error('❌ Gemini API error:', errorText);
+          throw new Error('Gemini API error: ' + errorText);
+        }
+        
+        const geminiData = await geminiRes.json();
+        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        
+        console.log('📝 Gemini response:', responseText);
+        
+        let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const productData = JSON.parse(jsonStr);
+        
+        console.log('✅ Product data extracted:', productData);
+        
+        return response(200, productData);
+        
+      } catch (error) {
+        console.error("Error analyzing product image:", error);
+        return response(500, { error: "商品画像の分析に失敗しました: " + error.message });
+      }
+    }
+
     return response(404, { error: "Not found", path, method });
 
   } catch (error) {
