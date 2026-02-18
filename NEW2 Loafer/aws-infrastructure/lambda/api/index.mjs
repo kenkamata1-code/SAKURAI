@@ -1557,6 +1557,10 @@ export const handler = async (event) => {
       try {
         console.log("Scraping URL:", url);
         
+        // タイムアウト付きfetch（10秒）
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
         // URLのページ内容を取得
         const pageRes = await fetch(url, {
           headers: {
@@ -1564,7 +1568,9 @@ export const handler = async (event) => {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
           },
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         console.log("Page fetch status:", pageRes.status);
         const html = await pageRes.text();
         console.log("HTML length:", html.length);
@@ -1600,7 +1606,11 @@ export const handler = async (event) => {
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
-          .substring(0, 8000); // Gemini APIへの入力を制限
+          .substring(0, 5000); // 短縮して高速化
+        
+        // Gemini APIタイムアウト設定（15秒）
+        const geminiController = new AbortController();
+        const geminiTimeoutId = setTimeout(() => geminiController.abort(), 15000);
         
         // Gemini APIで商品情報を抽出
         const geminiRes = await fetch(
@@ -1608,58 +1618,41 @@ export const handler = async (event) => {
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: geminiController.signal,
             body: JSON.stringify({
               contents: [{
                 parts: [{
-                  text: `以下のウェブページから商品情報を抽出してJSON形式で返してください。
-商品が見つからない場合は空のオブジェクトを返してください。
+                  text: `商品ページから情報を抽出しJSON形式で返してください。
 
-【抽出する情報】
-- name: 商品名（ブランド名＋モデル名など、正式な商品名）
+抽出項目:
+- name: 商品名
 - brand: ブランド名
-- price: 価格（数字のみ、カンマなし）
-- currency: 通貨コード（JPY, USD, EUR等）
-- category: 商品カテゴリー（以下から最も適切なものを1つ選択）
-  * "トップス" - Tシャツ、シャツ、ニット、パーカー、スウェット等
-  * "アウター／ジャケット" - ジャケット、コート、ブルゾン、ダウン等
-  * "パンツ" - ジーンズ、スラックス、ショートパンツ等
-  * "その他（スーツ／ワンピース等）" - スーツ、ワンピース、セットアップ等
-  * "バッグ" - バッグ、リュック、財布等
-  * "シューズ" - スニーカー、革靴、ブーツ、サンダル等
-  * "アクセサリー／小物" - 帽子、時計、ベルト、ネクタイ、マフラー等
-- description: 商品詳細（以下の情報をできるだけ多く含めて300文字程度で記載）
-  * 素材・生地情報
-  * デザインの特徴
-  * サイズ感・フィット感
-  * 製造国
-  * シーズン・年式
-  * 特記事項（限定品、コラボ等）
-- image_urls: 商品画像URL配列（下記リストから最も適切な商品画像を3枚選択。メイン画像を最初に）
-- available_colors: 利用可能なカラーの配列。各要素は { "name": "カラー名", "code": "#HEX色コード（わかれば）", "image_url": "そのカラーの商品画像URL" }
-- available_sizes: 利用可能なサイズの配列（例: ["S", "M", "L"] または ["25.0cm", "25.5cm", "26.0cm"]）
+- price: 価格（数字のみ）
+- currency: 通貨（JPY等）
+- category: 次から選択→トップス/アウター／ジャケット/パンツ/その他（スーツ／ワンピース等）/バッグ/シューズ/アクセサリー／小物
+- description: 商品詳細（素材、デザイン、サイズ感、製造国等を200文字程度）
+- image_urls: 商品画像3枚（下記リストから選択）
+- available_colors: [{name,code,image_url}]
+- available_sizes: サイズ配列
 
-【ページ内で見つかった画像URL一覧】
-${imageUrls.slice(0, 15).join('\n')}
+画像URL候補:
+${imageUrls.slice(0, 10).join('\n')}
 
-【重要】
-- image_urlsは上記リストから商品画像として適切なものを最大3枚選んでください
-- categoryは上記7種類から必ず1つ選択してください
-- descriptionは商品の特徴を詳しく記載してください
-- JSONのみを返してください。説明文は不要です
-
-【ウェブページ内容】
+ページ内容:
 ${textContent}
 
-【URL】 ${url}`
+URL: ${url}
+JSONのみ返してください。`
                 }]
               }],
               generationConfig: {
                 temperature: 0.1,
-                maxOutputTokens: 3000,
+                maxOutputTokens: 2000,
               }
             }),
           }
         );
+        clearTimeout(geminiTimeoutId);
         
         console.log("Gemini API status:", geminiRes.status);
         if (!geminiRes.ok) {
