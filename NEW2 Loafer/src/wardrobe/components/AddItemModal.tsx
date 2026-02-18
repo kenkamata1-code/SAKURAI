@@ -24,6 +24,7 @@ interface ScrapedProductData {
   available_colors?: ScrapedColor[];
   available_sizes?: string[];
   default_image_url?: string;
+  image_urls?: string[]; // 複数画像URL（最大3枚）
 }
 
 interface AddItemModalProps {
@@ -147,20 +148,40 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
 
   // スクレイピングデータをフォームに適用
   const applyScrapedData = (data: ScrapedProductData, color: ScrapedColor | null, size: string) => {
+    // カテゴリーを正規化（APIから返されたカテゴリーが有効かチェック）
+    const validCategories = ['トップス', 'アウター／ジャケット', 'パンツ', 'その他（スーツ／ワンピース等）', 'バッグ', 'シューズ', 'アクセサリー／小物'];
+    const normalizedCategory = data.category && validCategories.includes(data.category) 
+      ? data.category 
+      : formData.category;
+    
     setFormData({
       ...formData,
       name: data.name || formData.name,
       brand: data.brand || formData.brand,
       size: size || formData.size,
       color: color?.name || formData.color,
-      category: data.category || formData.category,
+      category: normalizedCategory,
       purchase_price: data.price || formData.purchase_price,
       currency: data.currency || formData.currency,
       notes: data.description || formData.notes,
     });
     
-    // 選択したカラーに対応する画像を設定
-    if (color?.image_url) {
+    // 画像URLを設定（最大3枚）
+    if (data.image_urls && data.image_urls.length > 0) {
+      // カラー選択がある場合はそのカラーの画像を優先
+      if (color?.image_url) {
+        setImageUrl(color.image_url);
+        // 残りの画像をimage_urlsから設定
+        const remainingImages = data.image_urls.filter(url => url !== color.image_url);
+        if (remainingImages[0]) setImageUrl2(remainingImages[0]);
+        if (remainingImages[1]) setImageUrl3(remainingImages[1]);
+      } else {
+        // image_urls配列から3枚設定
+        if (data.image_urls[0]) setImageUrl(data.image_urls[0]);
+        if (data.image_urls[1]) setImageUrl2(data.image_urls[1]);
+        if (data.image_urls[2]) setImageUrl3(data.image_urls[2]);
+      }
+    } else if (color?.image_url) {
       setImageUrl(color.image_url);
     } else if (data.default_image_url) {
       setImageUrl(data.default_image_url);
