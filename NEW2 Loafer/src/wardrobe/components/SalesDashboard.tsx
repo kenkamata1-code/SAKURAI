@@ -1,13 +1,10 @@
 import { useMemo } from 'react';
-import { DollarSign, TrendingUp, Package, Calendar } from 'lucide-react';
+import { Package } from 'lucide-react';
 import type { WardrobeItem } from '../types';
 
 interface SalesDashboardProps {
   items: WardrobeItem[];
 }
-
-// 月名の定義
-const MONTH_NAMES = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
 export default function SalesDashboard({ items }: SalesDashboardProps) {
   // 売却済みアイテムのみをフィルタリング
@@ -54,7 +51,7 @@ export default function SalesDashboard({ items }: SalesDashboardProps) {
       const amount = monthItems.reduce((sum, item) => sum + (item.sold_price || 0), 0);
 
       months.push({
-        month: `${year}/${month + 1}`,
+        month: `${month + 1}月`,
         amount,
         count: monthItems.length,
       });
@@ -68,138 +65,109 @@ export default function SalesDashboard({ items }: SalesDashboardProps) {
 
   // 通貨フォーマット
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ja-JP', {
-      style: 'currency',
-      currency: 'JPY',
-      minimumFractionDigits: 0,
-    }).format(amount);
+    return `¥${amount.toLocaleString()}`;
   };
 
   return (
     <div className="space-y-8">
       {/* KPIカード */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 p-6 rounded-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <Package className="w-5 h-5 text-blue-600" />
-            </div>
-            <span className="text-sm text-gray-600">総売却数</span>
-          </div>
-          <p className="text-3xl font-light">{stats.totalSoldCount}<span className="text-lg ml-1">点</span></p>
+        <div className="bg-white border border-gray-200 p-6">
+          <div className="text-xs text-gray-500 tracking-wider mb-1">総売却数</div>
+          <div className="text-xs text-gray-400 tracking-wider mb-4">Total Sold</div>
+          <div className="text-3xl font-light tracking-wider">{stats.totalSoldCount}点</div>
         </div>
 
-        <div className="bg-white border border-gray-200 p-6 rounded-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-green-600" />
-            </div>
-            <span className="text-sm text-gray-600">総売却額</span>
-          </div>
-          <p className="text-3xl font-light">{formatCurrency(stats.totalSoldAmount)}</p>
+        <div className="bg-white border border-gray-200 p-6">
+          <div className="text-xs text-gray-500 tracking-wider mb-1">総売却額</div>
+          <div className="text-xs text-gray-400 tracking-wider mb-4">Total Revenue</div>
+          <div className="text-3xl font-light tracking-wider">{formatCurrency(stats.totalSoldAmount)}</div>
         </div>
 
-        <div className="bg-white border border-gray-200 p-6 rounded-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-purple-600" />
-            </div>
-            <span className="text-sm text-gray-600">平均売却価格</span>
-          </div>
-          <p className="text-3xl font-light">{formatCurrency(stats.averageSoldPrice)}</p>
+        <div className="bg-white border border-gray-200 p-6">
+          <div className="text-xs text-gray-500 tracking-wider mb-1">平均売却価格</div>
+          <div className="text-xs text-gray-400 tracking-wider mb-4">Average Price</div>
+          <div className="text-3xl font-light tracking-wider">{formatCurrency(stats.averageSoldPrice)}</div>
         </div>
 
-        <div className="bg-white border border-gray-200 p-6 rounded-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className={`w-10 h-10 ${stats.totalProfit >= 0 ? 'bg-emerald-100' : 'bg-red-100'} rounded-full flex items-center justify-center`}>
-              <Calendar className={`w-5 h-5 ${stats.totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
-            </div>
-            <span className="text-sm text-gray-600">総利益</span>
-          </div>
-          <p className={`text-3xl font-light ${stats.totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+        <div className="bg-white border border-gray-200 p-6">
+          <div className="text-xs text-gray-500 tracking-wider mb-1">総利益</div>
+          <div className="text-xs text-gray-400 tracking-wider mb-4">Total Profit</div>
+          <div className={`text-3xl font-light tracking-wider ${stats.totalProfit >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
             {stats.totalProfit >= 0 ? '+' : ''}{formatCurrency(stats.totalProfit)}
-          </p>
-          <p className="text-sm text-gray-500 mt-1">利益率: {stats.profitMargin}%</p>
+          </div>
+          <div className="text-xs text-gray-500 mt-2">利益率: {stats.profitMargin}%</div>
         </div>
       </div>
 
       {/* 月別売却額の棒グラフ */}
-      <div className="bg-white border border-gray-200 p-6 rounded-lg">
-        <h3 className="text-lg font-medium mb-6">過去12カ月の売却額推移</h3>
+      <div className="bg-white border border-gray-200 p-6">
+        <div className="text-xs text-gray-500 tracking-wider mb-1">過去12カ月の売却額</div>
+        <div className="text-xs text-gray-400 tracking-wider mb-6">Monthly Sales</div>
         
         {monthlySalesData.every(d => d.amount === 0) ? (
-          <div className="text-center py-12 text-gray-500">
-            <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+          <div className="text-center py-12 text-gray-400">
+            <Package className="w-12 h-12 mx-auto mb-4" />
             <p>売却データがありません</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* グラフ */}
-            <div className="flex items-end gap-2 h-64">
-              {monthlySalesData.map((data, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center">
-                  <div className="w-full flex flex-col items-center justify-end h-48">
-                    {data.amount > 0 && (
-                      <span className="text-xs text-gray-600 mb-1">
-                        {formatCurrency(data.amount)}
-                      </span>
-                    )}
-                    <div
-                      className="w-full bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600"
-                      style={{
-                        height: `${(data.amount / maxAmount) * 100}%`,
-                        minHeight: data.amount > 0 ? '4px' : '0px',
-                      }}
-                      title={`${data.month}: ${formatCurrency(data.amount)} (${data.count}点)`}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left">
-                    {data.month.split('/')[1]}月
-                  </span>
+          <div className="flex items-end gap-1 h-48">
+            {monthlySalesData.map((data, index) => (
+              <div key={index} className="flex-1 flex flex-col items-center">
+                <div className="w-full flex flex-col items-center justify-end h-40">
+                  {data.amount > 0 && (
+                    <span className="text-xs text-gray-500 mb-1 whitespace-nowrap">
+                      {formatCurrency(data.amount)}
+                    </span>
+                  )}
+                  <div
+                    className="w-full bg-gray-900 transition-all duration-300"
+                    style={{
+                      height: `${(data.amount / maxAmount) * 100}%`,
+                      minHeight: data.amount > 0 ? '4px' : '0px',
+                    }}
+                    title={`${data.month}: ${formatCurrency(data.amount)} (${data.count}点)`}
+                  />
                 </div>
-              ))}
-            </div>
-
-            {/* 凡例 */}
-            <div className="flex justify-center items-center gap-4 text-sm text-gray-500 pt-4 border-t border-gray-100">
-              <span>
-                期間: {monthlySalesData[0]?.month} 〜 {monthlySalesData[monthlySalesData.length - 1]?.month}
-              </span>
-            </div>
+                <span className="text-xs text-gray-400 mt-2">{data.month}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
       {/* 最近の売却リスト */}
-      <div className="bg-white border border-gray-200 p-6 rounded-lg">
-        <h3 className="text-lg font-medium mb-4">最近の売却</h3>
+      <div className="bg-white border border-gray-200 p-6">
+        <div className="text-xs text-gray-500 tracking-wider mb-1">最近の売却</div>
+        <div className="text-xs text-gray-400 tracking-wider mb-6">Recent Sales</div>
+        
         {soldItems.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">売却履歴がありません</p>
+          <p className="text-gray-400 text-center py-8">売却履歴がありません</p>
         ) : (
           <div className="space-y-3">
             {soldItems
               .sort((a, b) => new Date(b.sold_date || 0).getTime() - new Date(a.sold_date || 0).getTime())
               .slice(0, 5)
               .map(item => (
-                <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                <div key={item.id} className="flex items-center gap-4 p-3 border border-gray-100">
                   {item.image_url ? (
                     <img
                       src={item.image_url}
                       alt={item.name}
-                      className="w-12 h-12 object-cover rounded"
+                      className="w-12 h-12 object-cover"
                     />
                   ) : (
-                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gray-100 flex items-center justify-center">
                       <Package className="w-6 h-6 text-gray-400" />
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{item.name}</p>
-                    <p className="text-sm text-gray-500">{item.brand}</p>
+                    <p className="text-sm font-medium truncate">{item.name}</p>
+                    <p className="text-xs text-gray-500">{item.brand}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium text-green-600">{formatCurrency(item.sold_price || 0)}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium">{formatCurrency(item.sold_price || 0)}</p>
+                    <p className="text-xs text-gray-400">
                       {item.sold_date ? new Date(item.sold_date).toLocaleDateString('ja-JP') : '-'}
                     </p>
                   </div>
@@ -211,4 +179,3 @@ export default function SalesDashboard({ items }: SalesDashboardProps) {
     </div>
   );
 }
-
