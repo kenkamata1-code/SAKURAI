@@ -62,6 +62,7 @@ export default function WardrobePage() {
     instep_height_mm: '',
   });
   const [footLoading, setFootLoading] = useState(false);
+  const [showFootMeasureModal, setShowFootMeasureModal] = useState(false);
   
   // AIアシスタント用
   const [aiInput, setAiInput] = useState('');
@@ -564,130 +565,325 @@ export default function WardrobePage() {
 
         {/* 足の測定ビュー */}
         {viewMode === 'foot-scan' && (
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h2 className="text-2xl tracking-wider font-light mb-2">足の測定</h2>
-              <p className="text-gray-600 text-sm">
-                足のサイズを記録して、最適なシューズサイズを見つけましょう
-              </p>
-            </div>
-            
-            {/* 測定フォーム */}
-            <div className="border border-gray-200 p-6 mb-8">
-              <h3 className="text-lg font-medium mb-4">新しい測定を追加</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm mb-2">足</label>
-                  <select
-                    value={footForm.foot_type}
-                    onChange={(e) => setFootForm({ ...footForm, foot_type: e.target.value as 'left' | 'right' })}
-                    className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900"
-                  >
-                    <option value="left">左足</option>
-                    <option value="right">右足</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm mb-2">足長 (mm) *</label>
-                  <input
-                    type="number"
-                    value={footForm.length_mm}
-                    onChange={(e) => setFootForm({ ...footForm, length_mm: e.target.value })}
-                    placeholder="例: 265"
-                    className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm mb-2">足幅 (mm) *</label>
-                  <input
-                    type="number"
-                    value={footForm.width_mm}
-                    onChange={(e) => setFootForm({ ...footForm, width_mm: e.target.value })}
-                    placeholder="例: 102"
-                    className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm mb-2">アーチ高さ (mm)</label>
-                  <input
-                    type="number"
-                    value={footForm.arch_height_mm}
-                    onChange={(e) => setFootForm({ ...footForm, arch_height_mm: e.target.value })}
-                    placeholder="例: 32"
-                    className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm mb-2">甲の高さ (mm)</label>
-                  <input
-                    type="number"
-                    value={footForm.instep_height_mm}
-                    onChange={(e) => setFootForm({ ...footForm, instep_height_mm: e.target.value })}
-                    placeholder="例: 65"
-                    className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900"
-                  />
-                </div>
+          <div className="max-w-5xl mx-auto">
+            {/* ヘッダー */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h2 className="text-2xl tracking-wider font-light mb-2">足の測定 / Foot Measurements</h2>
+                <p className="text-gray-600 text-sm">
+                  足の形を測定して、最適なシューズサイズを見つけましょう
+                </p>
               </div>
               <button
-                onClick={handleAddFootMeasurement}
-                disabled={footLoading || !footForm.length_mm || !footForm.width_mm}
-                className="px-6 py-2 bg-gray-900 text-white hover:bg-gray-800 transition disabled:bg-gray-400"
+                onClick={() => setShowFootMeasureModal(true)}
+                className="flex items-center gap-2 px-5 py-3 bg-gray-900 text-white hover:bg-gray-800 transition"
               >
-                {footLoading ? '保存中...' : '測定を保存'}
+                <Ruler className="w-5 h-5" />
+                測定を追加
               </button>
             </div>
-            
-            {/* 測定履歴 */}
-            <h3 className="text-lg font-medium mb-4">測定履歴</h3>
-            {measurements.length === 0 ? (
-              <div className="text-center py-12 border border-gray-200">
-                <Footprints className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">測定データがありません</p>
+
+            {/* 測定方法ガイド */}
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-6 mb-8">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-blue-600 text-sm">!</span>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">測定方法</h3>
+                  <ul className="space-y-2 text-gray-700">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600">•</span>
+                      <span>壁に踵をつけて立ち、つま先までの長さを測定（足長）</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600">•</span>
+                      <span>足の一番幅が広い部分を測定（足幅）</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600">•</span>
+                      <span>より正確な測定には、iOS端末のLiDAR機能を使用したスキャンアプリの利用を推奨</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {measurements.map((m) => (
-                  <div key={m.id} className={`border p-4 ${m.is_active ? 'border-gray-900 bg-gray-50' : 'border-gray-200'}`}>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium">{m.foot_type === 'left' ? '左足' : '右足'}</span>
-                          {m.is_active && (
-                            <span className="text-xs bg-gray-900 text-white px-2 py-0.5">アクティブ</span>
-                          )}
+            </div>
+
+            {/* 左足・右足のデータ表示 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* 左足 */}
+              <div>
+                <h3 className="text-lg font-medium mb-4 pb-2 border-b border-gray-200">左足 / Left Foot</h3>
+                {(() => {
+                  const leftMeasurements = measurements.filter(m => m.foot_type === 'left');
+                  const activeLeft = leftMeasurements.find(m => m.is_active) || leftMeasurements[0];
+                  if (!activeLeft) {
+                    return <p className="text-gray-500 py-4">測定データがありません</p>;
+                  }
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">足長</span>
+                        <span className="font-medium">{activeLeft.length_mm} mm</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">足幅</span>
+                        <span className="font-medium">{activeLeft.width_mm} mm</span>
+                      </div>
+                      {activeLeft.arch_height_mm && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-gray-600">アーチ高さ</span>
+                          <span className="font-medium">{activeLeft.arch_height_mm} mm</span>
                         </div>
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <p>足長: {m.length_mm}mm / 足幅: {m.width_mm}mm</p>
-                          {m.arch_height_mm && <p>アーチ: {m.arch_height_mm}mm</p>}
-                          {m.instep_height_mm && <p>甲の高さ: {m.instep_height_mm}mm</p>}
-                          <p className="text-xs text-gray-400">
+                      )}
+                      {activeLeft.instep_height_mm && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-gray-600">甲の高さ</span>
+                          <span className="font-medium">{activeLeft.instep_height_mm} mm</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-400 pt-2">
+                        測定日: {new Date(activeLeft.measurement_date || activeLeft.created_at).toLocaleDateString('ja-JP')}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* 右足 */}
+              <div>
+                <h3 className="text-lg font-medium mb-4 pb-2 border-b border-gray-200">右足 / Right Foot</h3>
+                {(() => {
+                  const rightMeasurements = measurements.filter(m => m.foot_type === 'right');
+                  const activeRight = rightMeasurements.find(m => m.is_active) || rightMeasurements[0];
+                  if (!activeRight) {
+                    return <p className="text-gray-500 py-4">測定データがありません</p>;
+                  }
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">足長</span>
+                        <span className="font-medium">{activeRight.length_mm} mm</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">足幅</span>
+                        <span className="font-medium">{activeRight.width_mm} mm</span>
+                      </div>
+                      {activeRight.arch_height_mm && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-gray-600">アーチ高さ</span>
+                          <span className="font-medium">{activeRight.arch_height_mm} mm</span>
+                        </div>
+                      )}
+                      {activeRight.instep_height_mm && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-gray-600">甲の高さ</span>
+                          <span className="font-medium">{activeRight.instep_height_mm} mm</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-400 pt-2">
+                        測定日: {new Date(activeRight.measurement_date || activeRight.created_at).toLocaleDateString('ja-JP')}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* 測定履歴 */}
+            {measurements.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium mb-4">測定履歴</h3>
+                <div className="space-y-3">
+                  {measurements.map((m) => (
+                    <div key={m.id} className={`border p-4 rounded-lg ${m.is_active ? 'border-gray-900 bg-gray-50' : 'border-gray-200'}`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium">{m.foot_type === 'left' ? '左足' : '右足'}</span>
+                            {m.is_active && (
+                              <span className="text-xs bg-gray-900 text-white px-2 py-0.5 rounded">アクティブ</span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            足長: {m.length_mm}mm / 足幅: {m.width_mm}mm
+                            {m.arch_height_mm && ` / アーチ: ${m.arch_height_mm}mm`}
+                            {m.instep_height_mm && ` / 甲: ${m.instep_height_mm}mm`}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
                             {new Date(m.measurement_date || m.created_at).toLocaleDateString('ja-JP')}
                           </p>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {!m.is_active && (
+                        <div className="flex gap-2">
+                          {!m.is_active && (
+                            <button
+                              onClick={() => setMeasurementActive(m.id, m.foot_type)}
+                              className="text-sm px-3 py-1 border border-gray-300 rounded hover:bg-gray-100"
+                            >
+                              アクティブに設定
+                            </button>
+                          )}
                           <button
-                            onClick={() => setMeasurementActive(m.id, m.foot_type)}
-                            className="text-sm px-3 py-1 border border-gray-300 hover:bg-gray-100"
+                            onClick={() => {
+                              if (confirm('この測定データを削除しますか？')) {
+                                deleteMeasurement(m.id);
+                              }
+                            }}
+                            className="p-2 hover:bg-red-50 text-red-500 rounded"
                           >
-                            アクティブに設定
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            if (confirm('この測定データを削除しますか？')) {
-                              deleteMeasurement(m.id);
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 測定追加モーダル */}
+            {showFootMeasureModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white max-w-lg w-full rounded-lg overflow-hidden">
+                  <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="text-xl font-medium">足の測定を追加</h3>
+                    <button onClick={() => setShowFootMeasureModal(false)} className="text-gray-500 hover:text-gray-700">
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                  
+                  <div className="p-6 space-y-6">
+                    {/* カメラ起動ボタン（iOS用） */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-sm text-gray-600 mb-3">iPhoneをお使いの場合、カメラで足を撮影して測定できます</p>
+                      <label className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+                          <circle cx="12" cy="13" r="3"></circle>
+                        </svg>
+                        カメラで撮影
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              // 将来的にAI分析で足のサイズを自動検出
+                              alert('撮影した画像からの自動測定機能は近日公開予定です。現在は下のフォームから手動で入力してください。');
                             }
                           }}
-                          className="p-1 hover:bg-red-50 text-red-500"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        />
+                      </label>
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-200"></div>
+                      </div>
+                      <div className="relative flex justify-center">
+                        <span className="px-4 bg-white text-sm text-gray-500">または手動で入力</span>
+                      </div>
+                    </div>
+
+                    {/* 手動入力フォーム */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">足を選択</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setFootForm({ ...footForm, foot_type: 'left' })}
+                            className={`py-3 border rounded-lg transition ${
+                              footForm.foot_type === 'left' 
+                                ? 'border-gray-900 bg-gray-900 text-white' 
+                                : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            左足
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFootForm({ ...footForm, foot_type: 'right' })}
+                            className={`py-3 border rounded-lg transition ${
+                              footForm.foot_type === 'right' 
+                                ? 'border-gray-900 bg-gray-900 text-white' 
+                                : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            右足
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-2">足長 (mm) *</label>
+                          <input
+                            type="number"
+                            value={footForm.length_mm}
+                            onChange={(e) => setFootForm({ ...footForm, length_mm: e.target.value })}
+                            placeholder="265"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-2">足幅 (mm) *</label>
+                          <input
+                            type="number"
+                            value={footForm.width_mm}
+                            onChange={(e) => setFootForm({ ...footForm, width_mm: e.target.value })}
+                            placeholder="102"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-2">アーチ高さ (mm)</label>
+                          <input
+                            type="number"
+                            value={footForm.arch_height_mm}
+                            onChange={(e) => setFootForm({ ...footForm, arch_height_mm: e.target.value })}
+                            placeholder="32"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-2">甲の高さ (mm)</label>
+                          <input
+                            type="number"
+                            value={footForm.instep_height_mm}
+                            onChange={(e) => setFootForm({ ...footForm, instep_height_mm: e.target.value })}
+                            placeholder="65"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
+
+                  <div className="p-6 border-t border-gray-200 flex gap-3">
+                    <button
+                      onClick={() => setShowFootMeasureModal(false)}
+                      className="flex-1 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleAddFootMeasurement();
+                        setShowFootMeasureModal(false);
+                      }}
+                      disabled={footLoading || !footForm.length_mm || !footForm.width_mm}
+                      className="flex-1 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition disabled:bg-gray-400"
+                    >
+                      {footLoading ? '保存中...' : '保存'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
