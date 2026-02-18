@@ -1,0 +1,43 @@
+# Loafer プロジェクト - Cursor AI ルール
+
+## プロジェクト概要
+このプロジェクトは靴の計測・注文管理アプリです。
+
+## アーキテクチャドキュメント
+重要なシステム設計ドキュメントは `obsidian-vault/02_SAKURAI プログラミング（概念整理）/` にあります。
+コードを書く前に、関連するドキュメントを参照してください：
+
+- `00_概念図.canvas` - システム全体の概念図
+- `01_フロントエンド.md` - フロントエンド設計
+- `02_フロントエンド公開（Amplify）.md` - AWS Amplify デプロイ設定
+- `03_(1) REST API.md` - REST API設計
+- `03_(2) API Gateway（APIを実体化する場所）.md` - API Gateway設定
+- `04_BACK END (Lambda).md` - Lambda関数設計
+- `05_(1) Data Base (RDS).md` - RDSデータベース設計
+- `05_(2) Data Base (S3).md` - S3ストレージ設計
+- `06_認証・権限（Cognito）.md` - Cognito認証設計
+- `07_コード管理（GitHub）.md` - Git/GitHub運用ルール
+- `08_ 外部連携.md` - 外部サービス連携
+- `09_ドメイン設定（方法）.md` - ドメイン設定
+
+## 技術スタック
+- **フロントエンド**: React + TypeScript + Vite + Tailwind CSS
+- **バックエンド**: AWS Lambda (Node.js)
+- **データベース**: AWS RDS (PostgreSQL) + S3
+- **認証**: AWS Cognito
+- **API**: REST API via API Gateway
+- **ホスティング**: AWS Amplify
+- **決済**: Stripe
+
+## コーディング規約
+- 日本語でコメントを書く
+- TypeScriptの型を厳密に定義する
+- コンポーネントは関数コンポーネントで記述
+- APIクライアントは `src/lib/api-client.ts` を使用
+
+## 参照すべきドキュメント
+機能追加や修正の際は、必ず以下を確認：
+1. Obsidianの概念図（`obsidian-vault/02_SAKURAI プログラミング（概念整理）/`）
+2. `docs/` フォルダ内のテクニカルドキュメント
+3. `aws-infrastructure/` 内のインフラ設定
+

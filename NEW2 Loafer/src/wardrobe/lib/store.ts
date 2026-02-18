@@ -298,7 +298,7 @@ export const useMeasurementStore = create<MeasurementState>()(
 
 // UI Store - 画面表示の状態管理
 interface UIState {
-  viewMode: 'items' | 'styling' | 'dashboard' | 'ai-assistant' | 'foot-scan' | 'size-mapping' | 'size-recommend';
+  viewMode: 'items' | 'styling' | 'dashboard' | 'sales' | 'portfolio' | 'ai-assistant' | 'foot-scan' | 'size-mapping' | 'size-recommend';
   dashboardSubTab: 'expense' | 'sell' | 'portfolio';
   showAddModal: boolean;
   showStylingModal: boolean;

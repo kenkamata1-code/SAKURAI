@@ -1555,13 +1555,17 @@ export const handler = async (event) => {
       }
       
       try {
+        console.log("Scraping URL:", url);
+        
         // URLのページ内容を取得
         const pageRes = await fetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           },
         });
+        console.log("Page fetch status:", pageRes.status);
         const html = await pageRes.text();
+        console.log("HTML length:", html.length);
         
         // HTMLから主要なテキストを抽出（簡略化）
         const textContent = html
@@ -1610,20 +1614,29 @@ URL: ${url}`
           }
         );
         
+        console.log("Gemini API status:", geminiRes.status);
         if (!geminiRes.ok) {
-          throw new Error('Gemini API error');
+          const errorText = await geminiRes.text();
+          console.error("Gemini API error response:", errorText);
+          throw new Error('Gemini API error: ' + errorText.substring(0, 200));
         }
         
         const geminiData = await geminiRes.json();
         const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        console.log("Gemini response text:", responseText.substring(0, 500));
         
         // JSONを抽出（マークダウンコードブロックを除去）
         let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        console.log("Parsed JSON string:", jsonStr.substring(0, 300));
         const productData = JSON.parse(jsonStr);
+        console.log("Product data parsed successfully");
         
         return response(200, {
-          ...productData,
-          source_url: url,
+          success: true,
+          data: {
+            ...productData,
+            source_url: url,
+          }
         });
         
       } catch (error) {

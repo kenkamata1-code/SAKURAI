@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Package, Image as ImageIcon, BarChart3, Bot, Footprints, Sparkles, X, Trash2, Upload, Ruler } from 'lucide-react';
+import { Plus, Package, Image as ImageIcon, BarChart3, Bot, Footprints, Sparkles, X, Trash2, Upload, Ruler, DollarSign, PieChart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWardrobeStore, useStylingStore, useUIStore, useMeasurementStore } from './lib/store';
 import { CATEGORIES, CATEGORY_LABELS } from './types';
@@ -8,7 +8,9 @@ import ItemCard from './components/ItemCard';
 import AddItemModal from './components/AddItemModal';
 import ImageUpload from './components/ImageUpload';
 import AIAssistantView from './components/AIAssistantView';
-import { KPICard, BarChart, PieChart, TimeRangeSelector, AIInsightCard, type TimeRange } from './components/dashboard';
+import SalesDashboard from './components/SalesDashboard';
+import PortfolioAnalysis from './components/PortfolioAnalysis';
+import { KPICard, BarChart, PieChart as DashboardPieChart, TimeRangeSelector, AIInsightCard, type TimeRange } from './components/dashboard';
 import { apiClient } from './lib/api-client';
 
 export default function WardrobePage() {
@@ -314,6 +316,8 @@ export default function WardrobePage() {
               { key: 'items', icon: Package, label: 'アイテム' },
               { key: 'styling', icon: ImageIcon, label: 'スタイリング' },
               { key: 'dashboard', icon: BarChart3, label: 'ダッシュボード' },
+              { key: 'sales', icon: DollarSign, label: '売却管理' },
+              { key: 'portfolio', icon: PieChart, label: 'ポートフォリオ' },
               { key: 'ai-assistant', icon: Bot, label: 'AI ASSISTANT' },
               { key: 'foot-scan', icon: Footprints, label: '足の測定' },
               { key: 'size-recommend', icon: Sparkles, label: 'サイズ推奨' },
@@ -548,6 +552,32 @@ export default function WardrobePage() {
                 <p className="text-gray-500">ポートフォリオ管理機能は開発中です</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* 売却管理ビュー */}
+        {viewMode === 'sales' && (
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-2xl tracking-wider font-light mb-2">売却管理 / Sales Management</h2>
+              <p className="text-gray-600 text-sm">
+                売却したアイテムの管理と売却実績の分析
+              </p>
+            </div>
+            <SalesDashboard items={items} />
+          </div>
+        )}
+
+        {/* ポートフォリオ分析ビュー */}
+        {viewMode === 'portfolio' && (
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-2xl tracking-wider font-light mb-2">ポートフォリオ分析 / Portfolio Analysis</h2>
+              <p className="text-gray-600 text-sm">
+                ワードローブの構成、分布、着用率を分析
+              </p>
+            </div>
+            <PortfolioAnalysis items={items} />
           </div>
         )}
 

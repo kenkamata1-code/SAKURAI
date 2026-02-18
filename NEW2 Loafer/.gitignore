@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Obsidian連携（シンボリックリンク先は別管理）
+# obsidian-vault はシンボリックリンクなのでGit管理対象外
+obsidian-vault
+
+# 重複ファイル
+*\ 2.*
+*\ 2/
+
