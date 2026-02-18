@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Package, Image as ImageIcon, BarChart3, Bot, Footprints, Sparkles, X, Trash2, Upload, Ruler } from 'lucide-react';
+import { Plus, Package, Image as ImageIcon, BarChart3, Bot, Footprints, X, Trash2, Upload, Ruler } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWardrobeStore, useStylingStore, useUIStore, useMeasurementStore } from './lib/store';
 import { CATEGORIES, CATEGORY_LABELS } from './types';
@@ -330,7 +330,6 @@ export default function WardrobePage() {
               { key: 'dashboard', icon: BarChart3, label: 'ダッシュボード' },
               { key: 'ai-assistant', icon: Bot, label: 'AI ASSISTANT' },
               { key: 'foot-scan', icon: Footprints, label: '足の測定' },
-              { key: 'size-recommend', icon: Sparkles, label: 'サイズ推奨' },
             ].map(({ key, icon: Icon, label }) => (
               <button
                 key={key}
@@ -907,54 +906,6 @@ export default function WardrobePage() {
           </div>
         )}
 
-        {/* サイズ推奨ビュー */}
-        {viewMode === 'size-recommend' && (
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h2 className="text-2xl tracking-wider font-light mb-2">サイズ推奨</h2>
-              <p className="text-gray-600 text-sm">
-                あなたの足の測定データと購入履歴に基づいて、最適なサイズを推奨します
-              </p>
-            </div>
-            
-            {measurements.filter(m => m.is_active).length === 0 ? (
-              <div className="text-center py-12 border border-gray-200">
-                <Sparkles className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">足の測定データが必要です</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  「足の測定」タブで測定データを登録してください
-                </p>
-                <button
-                  onClick={() => setViewMode('foot-scan')}
-                  className="mt-4 px-6 py-2 border border-gray-900 hover:bg-gray-900 hover:text-white transition"
-                >
-                  足の測定へ
-                </button>
-              </div>
-            ) : (
-              <div className="border border-gray-200 p-6">
-                <div className="mb-6">
-                  <h3 className="font-medium mb-2">あなたの足のデータ</h3>
-                  {measurements.filter(m => m.is_active).map(m => (
-                    <p key={m.id} className="text-sm text-gray-600">
-                      {m.foot_type === 'left' ? '左足' : '右足'}: 足長 {m.length_mm}mm / 足幅 {m.width_mm}mm
-                    </p>
-                  ))}
-                </div>
-                
-                <div className="bg-gray-50 p-4 border border-gray-200">
-                  <h3 className="font-medium mb-2">推奨サイズ</h3>
-                  <p className="text-2xl font-light">
-                    {Math.round((measurements.find(m => m.is_active)?.length_mm || 260) / 10 + 1)}cm
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    足長に基づく一般的な推奨サイズです。ブランドによってサイズ感が異なる場合があります。
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* アイテム追加モーダル */}
