@@ -157,9 +157,20 @@ export default function ItemCard({
               <button
                 onClick={() => onDiscard(item.id)}
                 className="px-4 py-2 text-sm border border-gray-400 text-gray-600 hover:bg-gray-50 transition flex items-center gap-2"
-                title="廃棄"
+                title="廃棄（保持）"
               >
                 <Archive className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm('このアイテムを完全に削除しますか？この操作は取り消せません。')) {
+                    onDelete(item.id);
+                  }
+                }}
+                className="px-4 py-2 text-sm border border-red-300 text-red-600 hover:bg-red-50 transition flex items-center gap-2"
+                title="完全に削除"
+              >
+                <Trash2 className="w-4 h-4" />
               </button>
             </>
           ) : (
@@ -181,7 +192,11 @@ export default function ItemCard({
                 </button>
               )}
               <button
-                onClick={() => onDelete(item.id)}
+                onClick={() => {
+                  if (confirm('このアイテムを完全に削除しますか？この操作は取り消せません。')) {
+                    onDelete(item.id);
+                  }
+                }}
                 className="px-4 py-2 text-sm border border-red-300 text-red-600 hover:bg-red-50 transition"
                 title="完全に削除"
               >
