@@ -396,6 +396,24 @@ class AWSApiClient {
     }
   }
 
+  // ==================== AIアシスタント チャット ====================
+  async aiChat(message: string, history: { role: 'user' | 'assistant'; content: string }[]): Promise<ApiResponse<{ reply: string }>> {
+    try {
+      const res = await authFetch(`${API_BASE_URL}/wardrobe/ai-chat`, {
+        method: 'POST',
+        body: JSON.stringify({ message, history }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        return { data: null, error: new Error(error.error || 'AIチャットに失敗しました') };
+      }
+      const data = await res.json();
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error: error as Error };
+    }
+  }
+
   // ==================== File Upload (S3) ====================
   async uploadImage(userId: string, file: File, bucket: string): Promise<ApiResponse<string>> {
     try {

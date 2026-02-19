@@ -1555,66 +1555,57 @@ export const handler = async (event) => {
       }
       
       try {
-        console.log("Scraping URL:", url);
-        
-        // タイムアウト付きfetch（10秒）
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        // URLのページ内容を取得
+        console.log("Scraping URL (hybrid: URL Context + HTML image extraction):", url);
+
+        // ── ① HTMLから画像URLを並行取得 ──────────────────────────
+        let imageUrls = [];
+        try {
+          const htmlController = new AbortController();
+          const htmlTimeout = setTimeout(() => htmlController.abort(), 10000);
         const pageRes = await fetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
           },
-          signal: controller.signal,
+            signal: htmlController.signal,
         });
-        clearTimeout(timeoutId);
-        console.log("Page fetch status:", pageRes.status);
+          clearTimeout(htmlTimeout);
         const html = await pageRes.text();
-        console.log("HTML length:", html.length);
-        
-        // HTMLから画像URLを抽出
-        const imageUrls = [];
+
+          // OGP画像を優先取得
+          const ogImageMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+          if (ogImageMatch?.[1]) imageUrls.push(ogImageMatch[1]);
+
+          // <img> タグから商品画像を抽出
         const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
         let match;
-        while ((match = imgRegex.exec(html)) !== null && imageUrls.length < 20) {
+          while ((match = imgRegex.exec(html)) !== null && imageUrls.length < 15) {
           let imgSrc = match[1];
-          // 相対URLを絶対URLに変換
-          if (imgSrc.startsWith('//')) {
-            imgSrc = 'https:' + imgSrc;
-          } else if (imgSrc.startsWith('/')) {
-            const urlObj = new URL(url);
-            imgSrc = urlObj.origin + imgSrc;
-          } else if (!imgSrc.startsWith('http')) {
-            const urlObj = new URL(url);
-            imgSrc = urlObj.origin + '/' + imgSrc;
-          }
-          // 小さいアイコンやトラッキング画像を除外
-          if (!imgSrc.includes('tracking') && !imgSrc.includes('pixel') && 
+            if (imgSrc.startsWith('//')) imgSrc = 'https:' + imgSrc;
+            else if (imgSrc.startsWith('/')) imgSrc = new URL(url).origin + imgSrc;
+            else if (!imgSrc.startsWith('http')) imgSrc = new URL(url).origin + '/' + imgSrc;
+            if (
+              !imgSrc.includes('tracking') && !imgSrc.includes('pixel') &&
               !imgSrc.includes('.gif') && !imgSrc.includes('icon') &&
-              !imgSrc.includes('logo') && !imgSrc.includes('badge')) {
+              !imgSrc.includes('logo') && !imgSrc.includes('badge') &&
+              !imageUrls.includes(imgSrc)
+            ) {
             imageUrls.push(imgSrc);
           }
         }
-        console.log("Found image URLs:", imageUrls.length);
-        
-        // HTMLから主要なテキストを抽出（簡略化）
-        const textContent = html
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .substring(0, 5000); // 短縮して高速化
-        
-        // Gemini APIタイムアウト設定（15秒）
+          console.log("Extracted image URLs from HTML:", imageUrls.length);
+        } catch (htmlErr) {
+          console.warn("HTML fetch failed (will rely on Gemini for images):", htmlErr.message);
+        }
+
+        // ── ② Gemini URL Context で商品テキスト情報を取得 ─────────
         const geminiController = new AbortController();
-        const geminiTimeoutId = setTimeout(() => geminiController.abort(), 15000);
+        const geminiTimeoutId = setTimeout(() => geminiController.abort(), 30000);
         
-        // Gemini APIで商品情報を抽出
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1622,32 +1613,35 @@ export const handler = async (event) => {
             body: JSON.stringify({
               contents: [{
                 parts: [{
-                  text: `商品ページから情報を抽出しJSON形式で返してください。
-
-抽出項目:
-- name: 商品名
-- brand: ブランド名
-- price: 価格（数字のみ）
-- currency: 通貨（JPY等）
-- category: 次から選択→トップス/アウター／ジャケット/パンツ/その他（スーツ／ワンピース等）/バッグ/シューズ/アクセサリー／小物
-- description: 商品詳細（素材、デザイン、サイズ感、製造国等を200文字程度）
-- image_urls: 商品画像3枚（下記リストから選択）
-- available_colors: [{name,code,image_url}]
-- available_sizes: サイズ配列
-
-画像URL候補:
-${imageUrls.slice(0, 10).join('\n')}
-
-ページ内容:
-${textContent}
+                  text: `以下のURLの商品ページにアクセスして商品情報を抽出し、必ず純粋なJSONオブジェクトのみを返してください。説明文や前置き、マークダウン記法は一切不要です。
 
 URL: ${url}
-JSONのみ返してください。`
+
+以下の形式のJSONオブジェクトのみ返してください:
+{
+  "name": "商品名",
+  "brand": "ブランド名",
+  "price": "価格（数字のみ）",
+  "currency": "JPY",
+  "category": "トップス/アウター／ジャケット/パンツ/その他（スーツ／ワンピース等）/バッグ/シューズ/アクセサリー／小物 のいずれか",
+  "description": "商品詳細（素材、デザイン、サイズ感、製造国等を200文字程度）",
+  "image_urls": ["画像URL1", "画像URL2"],
+  "available_colors": [{"name": "色名", "code": "カラーコード", "image_url": "画像URL"}],
+  "available_sizes": ["S", "M", "L"]
+}
+
+image_urlsには以下の画像URL候補から商品画像を最大3枚選んで入れてください:
+${imageUrls.slice(0, 15).join('\n')}
+
+必ずJSONオブジェクトのみを返し、他のテキストは一切含めないでください。`
                 }]
+              }],
+              tools: [{
+                urlContext: {}
               }],
               generationConfig: {
                 temperature: 0.1,
-                maxOutputTokens: 2000,
+                maxOutputTokens: 8192,
               }
             }),
           }
@@ -1662,14 +1656,48 @@ JSONのみ返してください。`
         }
         
         const geminiData = await geminiRes.json();
-        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        // finishReasonがMAX_TOKENSの場合はトークン切れ
+        const finishReason = geminiData.candidates?.[0]?.finishReason;
+        console.log("Gemini finishReason:", finishReason);
+        if (finishReason === 'MAX_TOKENS') {
+          console.error("Gemini response was cut off due to MAX_TOKENS");
+        }
+        // URLコンテキストツール使用時はpartsが複数になる場合があるため全テキストを結合
+        const parts = geminiData.candidates?.[0]?.content?.parts || [];
+        console.log("Gemini parts count:", parts.length);
+        const responseText = parts.map(p => p.text || '').join('').trim() || '{}';
         console.log("Gemini response text:", responseText.substring(0, 500));
         
-        // JSONを抽出（マークダウンコードブロックを除去）
+        // JSONを抽出（複数パターンに対応）
         let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        // マークダウン形式で返ってきた場合、{ } で囲まれたJSONブロックを抽出
+        if (!jsonStr.startsWith('{')) {
+          const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            jsonStr = jsonMatch[0];
+          } else {
+            throw new Error('JSONが見つかりませんでした。Geminiの応答: ' + jsonStr.substring(0, 200));
+          }
+        }
         console.log("Parsed JSON string:", jsonStr.substring(0, 300));
         const productData = JSON.parse(jsonStr);
         console.log("Product data parsed successfully");
+
+        // Geminiが空オブジェクトを返した場合はエラー
+        if (!productData.name && !productData.brand) {
+          // ログインが必要なページかチェック
+          const isLoginRequired = url.includes('login') || url.includes('member') || url.includes('account') || url.includes('mypage') || url.includes('orderhistory');
+          if (isLoginRequired) {
+            throw new Error('このページはログインが必要なため取得できません。商品の個別ページのURLを入力してください。');
+          }
+          throw new Error('Geminiが商品情報を取得できませんでした。商品の個別ページのURLを入力してください。');
+        }
+
+        // ── ③ image_urlsが空の場合はHTMLから抽出した画像URLで補完 ──
+        if ((!productData.image_urls || productData.image_urls.length === 0) && imageUrls.length > 0) {
+          productData.image_urls = imageUrls.slice(0, 3);
+          console.log("image_urls補完 (HTMLから):", productData.image_urls);
+        }
         
         return response(200, {
           success: true,
@@ -1713,7 +1741,7 @@ JSONのみ返してください。`
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1799,7 +1827,7 @@ JSONのみを返してください。読み取れない項目は空文字にし�
         console.log('📸 Analyzing product image with Gemini...');
         
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1866,6 +1894,102 @@ JSONのみを返してください。`
       } catch (error) {
         console.error("Error analyzing product image:", error);
         return response(500, { error: "商品画像の分析に失敗しました: " + error.message });
+      }
+    }
+
+    // ==================== AIアシスタント チャット (Gemini 2.5 Flash) ====================
+    if (path === "/v1/wardrobe/ai-chat" && method === "POST") {
+      if (!userId) return response(401, { error: "認証が必要です" });
+
+      const parsedBody = JSON.parse(body || "{}");
+      const { message, history } = parsedBody;
+
+      if (!message) return response(400, { error: "message is required" });
+
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+      if (!GEMINI_API_KEY) return response(500, { error: "GEMINI_API_KEY未設定" });
+
+      try {
+        // ユーザーのワードローブ情報を取得してコンテキストに含める
+        const wardrobeResult = await db.query(
+          `SELECT name, brand, category, size, color, purchase_price, currency, purchase_date, description
+           FROM wardrobe_items WHERE user_id = $1 AND is_discarded = false AND is_sold = false
+           ORDER BY created_at DESC LIMIT 50`,
+          [userId]
+        );
+        const items = wardrobeResult.rows;
+
+        // 足のサイズ情報も取得
+        const measureResult = await db.query(
+          `SELECT foot_type, length_mm, width_mm FROM foot_measurements WHERE user_id = $1 AND is_active = true`,
+          [userId]
+        );
+        const measurements = measureResult.rows;
+
+        // システムプロンプト
+        const systemPrompt = `あなたはファッション・ワードローブ管理の専門AIアシスタントです。
+ユーザーのワードローブ情報を元に、コーデ提案・サイズアドバイス・購入アドバイスなど、ファッションに関するあらゆる相談に日本語で答えてください。
+
+【ユーザーの所有アイテム一覧（最新50件）】
+${items.length > 0 
+  ? items.map(i => `- ${i.brand ? i.brand + ' ' : ''}${i.name}（${i.category}${i.size ? ', サイズ:' + i.size : ''}${i.color ? ', ' + i.color : ''}${i.purchase_price ? ', ' + i.purchase_price + i.currency : ''}）`).join('\n')
+  : '（まだアイテムが登録されていません）'
+}
+
+【ユーザーの足のサイズ】
+${measurements.length > 0
+  ? measurements.map(m => `${m.foot_type === 'left' ? '左足' : '右足'}: 足長${m.length_mm}mm, 足幅${m.width_mm}mm`).join('\n')
+  : '（未測定）'
+}
+
+回答時の注意:
+- 簡潔かつ実用的なアドバイスを提供してください
+- マークダウンのボールド（**太字**）や箇条書きを適切に使って見やすくしてください
+- 所有アイテムを参照する際は具体的なアイテム名を挙げてください`;
+
+        // チャット履歴をGemini形式に変換
+        const chatHistory = (history || []).slice(-10).map(msg => ({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        }));
+
+        // 現在のメッセージを追加
+        const contents = [
+          { role: 'user', parts: [{ text: systemPrompt }] },
+          { role: 'model', parts: [{ text: 'はい、ご質問にお答えします！' }] },
+          ...chatHistory,
+          { role: 'user', parts: [{ text: message }] }
+        ];
+
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents,
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2048,
+              }
+            }),
+          }
+        );
+
+        if (!geminiRes.ok) {
+          const errorText = await geminiRes.text();
+          throw new Error('Gemini API error: ' + errorText.substring(0, 200));
+        }
+
+        const geminiData = await geminiRes.json();
+        const replyText = geminiData.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim()
+          || 'すみません、回答を生成できませんでした。もう一度お試しください。';
+
+        return response(200, { reply: replyText });
+
+      } catch (error) {
+        console.error("Error in ai-chat:", error);
+        return response(500, { error: "AIチャットに失敗しました: " + error.message });
       }
     }
 

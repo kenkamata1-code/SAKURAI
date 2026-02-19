@@ -250,25 +250,39 @@ export default function AIAssistantView({
     }]);
   };
 
-  // テキストメッセージを送信
+  // テキストメッセージを送信（Gemini 2.5 Flash）
   const handleSendMessage = async (message?: string) => {
     const inputMessage = message || aiInput.trim();
     if (!inputMessage || !canUseAI) return;
 
     incrementUsage();
 
+    // 送信前の履歴（システム応答除くユーザー・アシスタントのやりとり）
+    const history = aiMessages.map(m => ({ role: m.role, content: m.content }));
+
     setAiMessages(prev => [...prev, { role: 'user', content: inputMessage }]);
     setAiInput('');
     setAiLoading(true);
 
-    // 簡易的なレスポンス（将来的にGemini APIに接続）
-    setTimeout(() => {
-      setAiMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: `「${inputMessage}」についてお手伝いします。\n\n💡 **ヒント**: 商品画像をアップロードすると、AIが自動で商品を認識して登録できます。\n\n📸 下の「画像をアップロード」ボタンをクリックしてお試しください！`
+    try {
+      const result = await apiClient.aiChat(inputMessage, history);
+      if (result.data?.reply) {
+        setAiMessages(prev => [...prev, {
+          role: 'assistant',
+          content: result.data!.reply,
+        }]);
+      } else {
+        throw new Error(result.error?.message || 'AIからの応答がありませんでした');
+      }
+    } catch (error) {
+      console.error('AI chat error:', error);
+      setAiMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'すみません、エラーが発生しました。しばらくしてからもう一度お試しください。',
       }]);
+    } finally {
       setAiLoading(false);
-    }, 1000);
+    }
   };
 
   const handleSampleClick = (question: string, isImageUpload?: boolean) => {
@@ -374,7 +388,22 @@ export default function AIAssistantView({
                         className="w-full max-w-[200px] rounded-lg mb-2"
                       />
                     )}
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {msg.content.split('\n').map((line, li) => {
+                        // **太字** をレンダリング
+                        const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                        const rendered = parts.map((part, pi) =>
+                          part.startsWith('**') && part.endsWith('**')
+                            ? <strong key={pi}>{part.slice(2, -2)}</strong>
+                            : part
+                        );
+                        // 箇条書き行
+                        if (line.startsWith('- ') || line.startsWith('• ')) {
+                          return <div key={li} className="flex gap-1"><span className="mt-0.5">•</span><span>{rendered.slice(1)}</span></div>;
+                        }
+                        return <div key={li}>{rendered}</div>;
+                      })}
+                    </div>
                     
                     {/* 登録確認ボタン */}
                     {msg.productData && pendingProduct && (
