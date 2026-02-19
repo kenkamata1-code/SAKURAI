@@ -1,24 +1,23 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Package, Image as ImageIcon, BarChart3, Bot, Footprints, X, Trash2, Upload, Ruler } from 'lucide-react';
+import { Plus, Package, Image as ImageIcon, BarChart3, Bot, Footprints, X, Trash2, Ruler } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWardrobeStore, useStylingStore, useUIStore, useMeasurementStore } from './lib/store';
 import { CATEGORIES, CATEGORY_LABELS } from './types';
-import type { WardrobeItem, FootMeasurement, StylingPhoto } from './types';
+import type { WardrobeItem, StylingPhoto, FootMeasurement } from './types';
 import ItemCard from './components/ItemCard';
 import AddItemModal from './components/AddItemModal';
-import ImageUpload from './components/ImageUpload';
 import AIAssistantView from './components/AIAssistantView';
 import SalesDashboard from './components/SalesDashboard';
 import PortfolioAnalysis from './components/PortfolioAnalysis';
 import StylingModal from './components/StylingModal';
 import StylingDetailModal from './components/StylingDetailModal';
-import { KPICard, BarChart, PieChart as DashboardPieChart, TimeRangeSelector, AIInsightCard, type TimeRange } from './components/dashboard';
+import { KPICard, BarChart, PieChart, TimeRangeSelector, AIInsightCard, type TimeRange } from './components/dashboard';
 import { apiClient } from './lib/api-client';
 
 export default function WardrobePage() {
   const { user } = useAuth();
   const { 
-    items, 
+    items: rawItems, 
     loading, 
     fetchItems, 
     addItem, 
@@ -26,13 +25,15 @@ export default function WardrobePage() {
     deleteItem, 
     discardItem, 
     restoreItem,
-    sellItem,
     selectedCategory,
     setSelectedCategory,
   } = useWardrobeStore();
+  const items: WardrobeItem[] = rawItems;
   
-  const { photos, fetchPhotos, addPhoto, deletePhoto } = useStylingStore();
-  const { measurements, fetchMeasurements, addMeasurement, deleteMeasurement, setMeasurementActive } = useMeasurementStore();
+  const { photos: rawPhotos, fetchPhotos, addPhoto, deletePhoto } = useStylingStore();
+  const photos: StylingPhoto[] = rawPhotos;
+  const { measurements: rawMeasurements, fetchMeasurements, addMeasurement, deleteMeasurement, setMeasurementActive } = useMeasurementStore();
+  const measurements: FootMeasurement[] = rawMeasurements as FootMeasurement[];
   
   const {
     viewMode,
@@ -46,7 +47,6 @@ export default function WardrobePage() {
   } = useUIStore();
 
   const [editingItem, setEditingItem] = useState<WardrobeItem | null>(null);
-  const [sellingItem, setSellingItem] = useState<WardrobeItem | null>(null);
   const [categoryRange, setCategoryRange] = useState<TimeRange>('1M');
   const [brandRange, setBrandRange] = useState<TimeRange>('1M');
   
@@ -123,10 +123,6 @@ export default function WardrobePage() {
 
   const handleRestore = async (id: string) => {
     await restoreItem(id);
-  };
-
-  const handleSell = (item: WardrobeItem) => {
-    setSellingItem(item);
   };
 
   // スタイリング写真の追加/更新
@@ -406,7 +402,6 @@ export default function WardrobePage() {
                     onDelete={handleDelete}
                     onDiscard={handleDiscard}
                     onRestore={handleRestore}
-                    onSell={handleSell}
                   />
                 ))}
               </div>
@@ -660,7 +655,7 @@ export default function WardrobePage() {
                         </div>
                       )}
                       <p className="text-xs text-gray-400 pt-2">
-                        測定日: {new Date(activeLeft.measurement_date || activeLeft.created_at).toLocaleDateString('ja-JP')}
+                        測定日: {new Date(activeLeft.measurement_date || activeLeft.created_at || '').toLocaleDateString('ja-JP')}
                       </p>
                     </div>
                   );
@@ -699,7 +694,7 @@ export default function WardrobePage() {
                         </div>
                       )}
                       <p className="text-xs text-gray-400 pt-2">
-                        測定日: {new Date(activeRight.measurement_date || activeRight.created_at).toLocaleDateString('ja-JP')}
+                        測定日: {new Date(activeRight.measurement_date || activeRight.created_at || '').toLocaleDateString('ja-JP')}
                       </p>
                     </div>
                   );
@@ -728,7 +723,7 @@ export default function WardrobePage() {
                             {m.instep_height_mm && ` / 甲: ${m.instep_height_mm}mm`}
                           </div>
                           <p className="text-xs text-gray-400 mt-1">
-                            {new Date(m.measurement_date || m.created_at).toLocaleDateString('ja-JP')}
+                            {new Date(m.measurement_date || m.created_at || '').toLocaleDateString('ja-JP')}
                           </p>
                         </div>
                         <div className="flex gap-2">
@@ -910,6 +905,7 @@ export default function WardrobePage() {
 
       {/* アイテム追加モーダル */}
       <AddItemModal
+        key={editingItem?.id || 'new'}
         isOpen={showAddModal}
         onClose={() => {
           setShowAddModal(false);

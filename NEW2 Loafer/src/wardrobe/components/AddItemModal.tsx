@@ -55,10 +55,13 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
   const [formData, setFormData] = useState<WardrobeItemFormData>({
     name: editingItem?.name || '',
     brand: editingItem?.brand || '',
+    product_number: editingItem?.product_number || '',
     size: editingItem?.size || '',
+    model_worn_size: editingItem?.model_worn_size || '',
+    measurements: editingItem?.measurements || '',
     color: editingItem?.color || '',
     category: editingItem?.category || 'シューズ',
-    purchase_date: editingItem?.purchase_date || getTodayDate(), // デフォルトは今日の日付
+    purchase_date: editingItem?.purchase_date || getTodayDate(),
     purchase_price: editingItem?.purchase_price?.toString() || '',
     currency: editingItem?.currency || 'JPY',
     purchase_location: editingItem?.purchase_location || '',
@@ -78,7 +81,10 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
       setFormData({
         name: editingItem?.name || '',
         brand: editingItem?.brand || '',
+        product_number: editingItem?.product_number || '',
         size: editingItem?.size || '',
+        model_worn_size: editingItem?.model_worn_size || '',
+        measurements: editingItem?.measurements || '',
         color: editingItem?.color || '',
         category: editingItem?.category || 'シューズ',
         purchase_date: editingItem?.purchase_date || getTodayDate(),
@@ -108,8 +114,11 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
       await onSave({
         name: formData.name,
         brand: formData.brand || null,
+        product_number: formData.product_number || null,
         size: formData.size || null,
         size_details: sizeDetails,
+        model_worn_size: formData.model_worn_size || null,
+        measurements: formData.measurements || null,
         color: formData.color || null,
         category: formData.category as WardrobeItem['category'],
         purchase_date: formData.purchase_date || null,
@@ -605,6 +614,19 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                 />
               </div>
               <div>
+                <label className="text-sm tracking-wider mb-2 block">商品番号</label>
+                <input
+                  type="text"
+                  value={formData.product_number}
+                  onChange={(e) => setFormData({ ...formData, product_number: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900"
+                  placeholder="例: DZ5485-010"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                   <Ruler className="w-4 h-4" />
                   サイズ
@@ -617,6 +639,29 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                   placeholder="例: 27.5cm"
                 />
               </div>
+              <div>
+                <label className="text-sm tracking-wider mb-2 block">モデル着用サイズ</label>
+                <input
+                  type="text"
+                  value={formData.model_worn_size}
+                  onChange={(e) => setFormData({ ...formData, model_worn_size: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900"
+                  placeholder="例: 身長180cm, Mサイズ着用"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
+                <Ruler className="w-4 h-4" />
+                採寸情報
+              </label>
+              <textarea
+                value={formData.measurements}
+                onChange={(e) => setFormData({ ...formData, measurements: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900 min-h-[80px]"
+                placeholder="例: 着丈72cm, 身幅52cm, 袖丈62cm, 肩幅46cm"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

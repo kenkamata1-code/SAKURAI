@@ -35,8 +35,11 @@ export interface WardrobeItem {
   user_id: string;
   name: string;
   brand: string | null;
+  product_number: string | null;       // 商品番号・品番
   size: string | null;
   size_details: SizeDetails | null;
+  model_worn_size: string | null;      // モデル着用サイズ（例: "モデル身長180cm, Mサイズ着用"）
+  measurements: string | null;         // 採寸情報（例: "着丈72cm, 身幅52cm, 袖丈62cm"）
   color: string | null;
   purchase_date: string | null;
   purchase_price: number | null;
@@ -103,6 +106,7 @@ export interface FootMeasurement {
   scan_image_url: string | null;
   measurement_date: string;
   is_active: boolean;
+  created_at?: string;
 }
 
 // ブランドサイズマッピング
@@ -165,7 +169,10 @@ export interface PublicProfile {
 export interface WardrobeItemFormData {
   name: string;
   brand: string;
+  product_number: string;      // 商品番号・品番
   size: string;
+  model_worn_size: string;     // モデル着用サイズ
+  measurements: string;        // 採寸情報
   color: string;
   category: WardrobeCategory | string;
   purchase_date: string;
