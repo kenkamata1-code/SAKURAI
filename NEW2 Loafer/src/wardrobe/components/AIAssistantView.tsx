@@ -10,6 +10,7 @@ interface Message {
   content: string;
   imageUrl?: string;
   productData?: Partial<WardrobeItem>;
+  productList?: Partial<WardrobeItem>[]; // 複数商品（購入履歴など）
 }
 
 interface AIAssistantViewProps {
@@ -82,6 +83,9 @@ export default function AIAssistantView({
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [pendingProduct, setPendingProduct] = useState<Partial<WardrobeItem> | null>(null);
+  // 複数商品（購入履歴など）選択状態
+  const [selectedProductIndices, setSelectedProductIndices] = useState<Set<number>>(new Set());
+  const [registeringBulk, setRegisteringBulk] = useState(false);
   const [pastedFile, setPastedFile] = useState<File | null>(null);
   const [pastedImagePreview, setPastedImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -172,36 +176,64 @@ export default function AIAssistantView({
       const productData = result.data;
 
       if (productData) {
-        // S3に画像をアップロード
-        let imageUrl = previewUrl;
-        try {
-          const uploadResult = await apiClient.uploadImage(user.id, file, 'wardrobe-items');
-          if (uploadResult.data) {
-            imageUrl = uploadResult.data;
+        // ======== 購入履歴スクリーンショット（複数商品）の場合 ========
+        if (productData.type === 'order_history' && Array.isArray(productData.items) && productData.items.length > 0) {
+          const items: Partial<WardrobeItem>[] = productData.items.map((item: Record<string, unknown>) => ({
+            name: (item.name as string) || '不明な商品',
+            brand: (item.brand as string) || null,
+            color: (item.color as string) || null,
+            size: (item.size as string) || null,
+            category: (item.category as string) || null,
+            purchase_price: item.purchase_price ? Number(item.purchase_price) : null,
+            currency: (item.currency as string) || 'JPY',
+            purchase_date: (item.purchase_date as string) || null,
+            notes: (item.notes as string) || null,
+          }));
+
+          // 全アイテムを選択状態にして初期化
+          setSelectedProductIndices(new Set(items.map((_, i) => i)));
+
+          const summary = items.map((p, i) =>
+            `${i + 1}. **${p.name}**${p.brand ? ` (${p.brand})` : ''}${p.size ? ` / ${p.size}` : ''}${p.purchase_price ? ` — ¥${Number(p.purchase_price).toLocaleString()}` : ''}`
+          ).join('\n');
+
+          setAiMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `購入履歴から **${items.length}件** の商品を検出しました。\n登録したい商品を選択してください。\n\n${summary}`,
+            productList: items,
+          }]);
+
+        // ======== 単一商品の場合 ========
+        } else {
+          // S3に画像をアップロード
+          let imageUrl = previewUrl;
+          try {
+            const uploadResult = await apiClient.uploadImage(user.id, file, 'wardrobe-items');
+            if (uploadResult.data) imageUrl = uploadResult.data;
+          } catch (e) {
+            console.error('Image upload failed:', e);
           }
-        } catch (e) {
-          console.error('Image upload failed:', e);
+
+          const product: Partial<WardrobeItem> = {
+            name: productData.name || '不明な商品',
+            brand: productData.brand || null,
+            color: productData.color || null,
+            size: productData.size || null,
+            category: productData.category || null,
+            purchase_price: productData.purchase_price ? Number(productData.purchase_price) : productData.price ? parseInt(productData.price) : null,
+            currency: productData.currency || 'JPY',
+            notes: productData.notes || productData.description || null,
+            image_url: imageUrl,
+          };
+
+          setPendingProduct(product);
+
+          setAiMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `商品を認識しました！\n\n📦 **${product.name}**\n${product.brand ? `🏷️ ブランド: ${product.brand}\n` : ''}${product.color ? `🎨 カラー: ${product.color}\n` : ''}${product.category ? `📁 カテゴリー: ${product.category}\n` : ''}${product.purchase_price ? `💰 価格: ¥${Number(product.purchase_price).toLocaleString()}\n` : ''}\n\nこの商品をワードローブに登録しますか？`,
+            productData: product,
+          }]);
         }
-
-        const product: Partial<WardrobeItem> = {
-          name: productData.name || '不明な商品',
-          brand: productData.brand || null,
-          color: productData.color || null,
-          category: productData.category || 'シューズ',
-          purchase_price: productData.price ? parseInt(productData.price) : null,
-          currency: productData.currency || 'JPY',
-          notes: productData.description || null,
-          image_url: imageUrl,
-        };
-
-        setPendingProduct(product);
-
-        // AIレスポンスを追加
-        setAiMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `商品を認識しました！\n\n📦 **${product.name}**\n${product.brand ? `🏷️ ブランド: ${product.brand}\n` : ''}${product.color ? `🎨 カラー: ${product.color}\n` : ''}${product.category ? `📁 カテゴリー: ${product.category}\n` : ''}${product.purchase_price ? `💰 価格: ¥${product.purchase_price.toLocaleString()}\n` : ''}\n\nこの商品をワードローブに登録しますか？`,
-          productData: product,
-        }]);
       } else {
         setAiMessages(prev => [...prev, {
           role: 'assistant',
@@ -244,6 +276,36 @@ export default function AIAssistantView({
     } finally {
       setAiLoading(false);
     }
+  };
+
+  // 複数商品の一括登録
+  const handleRegisterBulk = async (productList: Partial<WardrobeItem>[]) => {
+    if (!user) return;
+    const targets = productList.filter((_, i) => selectedProductIndices.has(i));
+    if (targets.length === 0) return;
+
+    setRegisteringBulk(true);
+    setAiLoading(true);
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const product of targets) {
+      try {
+        await addItem(user.id, product);
+        successCount++;
+      } catch (e) {
+        errors.push(product.name || '不明');
+      }
+    }
+
+    const msg = errors.length === 0
+      ? `✅ **${successCount}件** をワードローブに登録しました！\n「ITEMS」タブから確認・編集できます。`
+      : `${successCount}件を登録しました。\n⚠️ 失敗: ${errors.join(', ')}`;
+
+    setAiMessages(prev => [...prev, { role: 'assistant', content: msg }]);
+    setSelectedProductIndices(new Set());
+    setRegisteringBulk(false);
+    setAiLoading(false);
   };
 
   // 登録をキャンセル
@@ -468,7 +530,7 @@ export default function AIAssistantView({
                       })}
                     </div>
                     
-                    {/* 登録確認ボタン */}
+                    {/* 単一商品の登録確認ボタン */}
                     {msg.productData && pendingProduct && (
                       <div className="flex gap-2 mt-4">
                         <button
@@ -477,7 +539,7 @@ export default function AIAssistantView({
                           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                         >
                           <Check className="w-4 h-4" />
-                          登録する
+                          REGISTER
                         </button>
                         <button
                           onClick={handleCancelRegister}
@@ -485,8 +547,70 @@ export default function AIAssistantView({
                           className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
                         >
                           <X className="w-4 h-4" />
-                          キャンセル
+                          CANCEL
                         </button>
+                      </div>
+                    )}
+
+                    {/* 複数商品（購入履歴）の選択・一括登録UI */}
+                    {msg.productList && msg.productList.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        {/* 全選択/全解除 */}
+                        <div className="flex items-center gap-3 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedProductIndices.size === msg.productList!.length) {
+                                setSelectedProductIndices(new Set());
+                              } else {
+                                setSelectedProductIndices(new Set(msg.productList!.map((_, idx) => idx)));
+                              }
+                            }}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            {selectedProductIndices.size === msg.productList.length ? '全て解除' : '全て選択'}
+                          </button>
+                          <span className="text-xs text-gray-500">{selectedProductIndices.size}/{msg.productList.length} 件選択中</span>
+                        </div>
+
+                        {/* 商品チェックリスト */}
+                        {msg.productList.map((product, idx) => (
+                          <label
+                            key={idx}
+                            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                              selectedProductIndices.has(idx) ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedProductIndices.has(idx)}
+                              onChange={(e) => {
+                                const next = new Set(selectedProductIndices);
+                                if (e.target.checked) next.add(idx); else next.delete(idx);
+                                setSelectedProductIndices(next);
+                              }}
+                              className="mt-0.5 accent-blue-600"
+                            />
+                            <div className="flex-1 min-w-0 text-sm">
+                              <p className="font-medium truncate">{product.name}</p>
+                              <p className="text-gray-500 text-xs">
+                                {[product.brand, product.size, product.purchase_price ? `¥${Number(product.purchase_price).toLocaleString()}` : null, product.purchase_date].filter(Boolean).join(' / ')}
+                              </p>
+                            </div>
+                          </label>
+                        ))}
+
+                        {/* 一括登録ボタン */}
+                        <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200">
+                          <button
+                            onClick={() => handleRegisterBulk(msg.productList!)}
+                            disabled={aiLoading || registeringBulk || selectedProductIndices.size === 0}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 text-sm"
+                          >
+                            <Check className="w-4 h-4" />
+                            {registeringBulk ? '登録中...' : `選択した ${selectedProductIndices.size} 件を登録`}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

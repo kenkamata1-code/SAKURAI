@@ -1843,25 +1843,50 @@ JSONのみを返してください。読み取れない項目は空文字にし�
               contents: [{
                 parts: [
                   {
-                    text: `この商品画像を分析して、ワードローブに登録するための情報をJSON形式で返してください。
+                    text: `この画像を分析してください。
 
-ネット上の商品データベースや知識を活用して、できるだけ正確な情報を提供してください。
+【判定ルール】
+- 購入履歴・注文履歴・レシート・注文確認メールのスクリーンショットの場合 → 複数商品を配列で抽出
+- 単一の商品画像の場合 → 単一オブジェクトで返す
 
-抽出・推定する情報:
-- name: 商品名（ブランド名 + モデル名。例: "Nike Air Max 90"）
-- brand: ブランド名（Nike, Adidas, New Balance等）
-- category: カテゴリー（以下から選択: トップス, アウター／ジャケット, パンツ, その他（スーツ／ワンピース等）, バッグ, シューズ, アクセサリー／小物）
-- color: 色（例: ブラック/ホワイト, ネイビー）
-- price: 推定価格（日本円、数字のみ。例: 15000）
-- currency: 通貨（JPY）
-- description: 商品の説明（素材、特徴など、50文字以内）
+【購入履歴・注文履歴の場合のレスポンス形式】
+画像内に複数の注文・商品が含まれている場合は以下の配列形式で返してください:
+{
+  "type": "order_history",
+  "items": [
+    {
+      "name": "商品名",
+      "brand": "ブランド名",
+      "category": "カテゴリー",
+      "color": "色 / サイズ",
+      "size": "サイズ",
+      "purchase_price": 購入金額（数字のみ）,
+      "currency": "JPY",
+      "purchase_date": "YYYY-MM-DD",
+      "notes": "注文番号などの備考"
+    }
+  ]
+}
 
-重要:
-- 商品名は具体的なモデル名まで特定してください
-- 価格は日本での一般的な販売価格を推定してください
-- 不明な場合はnullを返してください
+【単一商品画像の場合のレスポンス形式】
+{
+  "type": "single_product",
+  "name": "商品名",
+  "brand": "ブランド名",
+  "category": "カテゴリー（トップス / アウター／ジャケット / パンツ / その他（スーツ／ワンピース等） / バッグ / シューズ / アクセサリー／小物）",
+  "color": "色",
+  "size": "サイズ",
+  "purchase_price": 推定価格（数字のみ）,
+  "currency": "JPY",
+  "notes": "商品の説明（50文字以内）"
+}
 
-JSONのみを返してください。`
+【重要ルール】
+- 画像内のテキスト（商品名・ブランド・価格・日付・サイズ・色）を正確に読み取る
+- 購入金額は税込みの実際の支払い金額を優先
+- 不明な項目はnullを返す
+- カテゴリーが不明な場合はアイテム名から推定する
+- JSONのみを返す（説明文・マークダウン不要）`
                   },
                   {
                     inline_data: {
@@ -1911,8 +1936,13 @@ JSONのみを返してください。`
 
         const productData = JSON.parse(jsonStr);
         
-        console.log('✅ Product data extracted:', productData);
+        console.log('✅ Product data extracted:', JSON.stringify(productData).substring(0, 300));
         
+        // type フィールドがない古い形式への後方互換
+        if (!productData.type) {
+          productData.type = Array.isArray(productData.items) ? 'order_history' : 'single_product';
+        }
+
         return response(200, productData);
         
       } catch (error) {
