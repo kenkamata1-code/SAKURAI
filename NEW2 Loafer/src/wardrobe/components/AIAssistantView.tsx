@@ -457,24 +457,33 @@ export default function AIAssistantView({
 
         {/* テキスト入力 */}
         <div className="flex-1 relative">
-          <input
-            type="text"
+          <textarea
             value={aiInput}
             onChange={(e) => setAiInput(e.target.value)}
-            placeholder={canUseAI ? "メッセージを入力、または画像をアップロード..." : "本日の利用上限に達しました"}
+            placeholder={canUseAI ? "メッセージを入力（Shift+Enterで改行、Enterで送信）" : "本日の利用上限に達しました"}
             disabled={!canUseAI || aiLoading}
-            className="w-full px-5 py-4 pr-14 border border-gray-300 rounded-full focus:outline-none focus:border-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            rows={1}
+            className="w-full px-5 py-4 pr-14 border border-gray-300 rounded-2xl focus:outline-none focus:border-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden leading-relaxed"
+            style={{ minHeight: '52px', maxHeight: '160px' }}
+            onInput={(e) => {
+              // 内容に合わせて高さを自動調整
+              const el = e.currentTarget;
+              el.style.height = 'auto';
+              el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && canUseAI && !aiLoading) {
+                // Enterのみ → 送信
                 e.preventDefault();
                 handleSendMessage();
               }
+              // Shift+Enter → デフォルト動作（改行）を許可
             }}
           />
           <button
             onClick={() => handleSendMessage()}
             disabled={aiLoading || !aiInput.trim() || !canUseAI}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-gray-900 text-white rounded-full flex items-center justify-center hover:bg-gray-800 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="absolute right-2 bottom-2 w-10 h-10 bg-gray-900 text-white rounded-full flex items-center justify-center hover:bg-gray-800 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             <Send className="w-4 h-4" />
           </button>
