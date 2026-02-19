@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Link as LinkIcon, Upload, Tag, Calendar, DollarSign, Ruler, MapPin, FileText, Sparkles, Image as ImageIcon, Check } from 'lucide-react';
 import ImageUpload from './ImageUpload';
 import { CATEGORIES, CATEGORY_LABELS, CURRENCIES } from '../types';
@@ -71,6 +71,32 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
   const [imageUrl3, setImageUrl3] = useState<string | null>(editingItem?.image_url_3 || null);
   const [sizeDetails, setSizeDetails] = useState<SizeDetails | null>(editingItem?.size_details || null);
   const [pendingImage, setPendingImage] = useState<{ file: File; slot: number } | null>(null);
+
+  // editingItem または isOpen が変わったときにフォームを初期化
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        name: editingItem?.name || '',
+        brand: editingItem?.brand || '',
+        size: editingItem?.size || '',
+        color: editingItem?.color || '',
+        category: editingItem?.category || 'シューズ',
+        purchase_date: editingItem?.purchase_date || getTodayDate(),
+        purchase_price: editingItem?.purchase_price?.toString() || '',
+        currency: editingItem?.currency || 'JPY',
+        purchase_location: editingItem?.purchase_location || '',
+        source_url: editingItem?.source_url || '',
+        notes: editingItem?.notes || '',
+      });
+      setImageUrl(editingItem?.image_url || null);
+      setImageUrl2(editingItem?.image_url_2 || null);
+      setImageUrl3(editingItem?.image_url_3 || null);
+      setSizeDetails(editingItem?.size_details || null);
+      setAddMethod('manual');
+      setUrlStep('input');
+      setScrapedData(null);
+    }
+  }, [isOpen, editingItem]);
 
   if (!isOpen) return null;
 
