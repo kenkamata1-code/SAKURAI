@@ -1873,7 +1873,7 @@ JSONのみを返してください。`
               }],
               generationConfig: {
                 temperature: 0.3,
-                maxOutputTokens: 1024,
+                maxOutputTokens: 4096,
               }
             }),
           }
@@ -1888,11 +1888,27 @@ JSONのみを返してください。`
         }
         
         const geminiData = await geminiRes.json();
-        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        
-        console.log('📝 Gemini response:', responseText);
-        
-        let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        // 複数partsを結合（レスポンスが分割される場合に対応）
+        const parts = geminiData.candidates?.[0]?.content?.parts || [];
+        const responseText = parts.map(p => p.text || '').join('');
+        const finishReason = geminiData.candidates?.[0]?.finishReason;
+        console.log('📝 Gemini response (finishReason:', finishReason, '):', responseText.substring(0, 200));
+
+        if (!responseText) throw new Error('Gemini returned empty response');
+
+        // JSON抽出（マークダウンコードブロックや前後テキストを除去）
+        let jsonStr = responseText;
+        const jsonMatch = jsonStr.match(/```json\s*([\s\S]*?)```/) || jsonStr.match(/```\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[1];
+        } else {
+          // {...} ブロックを直接抽出
+          const objMatch = jsonStr.match(/\{[\s\S]*\}/);
+          if (objMatch) jsonStr = objMatch[0];
+        }
+        jsonStr = jsonStr.trim();
+
         const productData = JSON.parse(jsonStr);
         
         console.log('✅ Product data extracted:', productData);
