@@ -64,6 +64,11 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
   const [scrapedData, setScrapedData] = useState<ScrapedProductData | null>(null);
   const [selectedColor, setSelectedColor] = useState<ScrapedColor | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('');
+  // シューズ専用サイズ選択
+  const SHOE_SIZE_UNITS = ['cm', 'US', 'UK', 'EU', 'JP'] as const;
+  type ShoeSizeUnit = typeof SHOE_SIZE_UNITS[number];
+  const [shoeSizeUnit, setShoeSizeUnit] = useState<ShoeSizeUnit>('cm');
+  const [shoeSizeInput, setShoeSizeInput] = useState<string>('');
   
   const [formData, setFormData] = useState<WardrobeItemFormData>({
     name: editingItem?.name || '',
@@ -166,16 +171,22 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
         const data = result.data.data as ScrapedProductData;
         setScrapedData(data);
         
-        // カラーまたはサイズの選択肢がある場合は選択ステップへ
+        // カラー・サイズの選択肢があるか、シューズカテゴリーなら選択ステップへ
         const hasColors = data.available_colors && data.available_colors.length > 0;
         const hasSizes = data.available_sizes && data.available_sizes.length > 0;
+        const isShoes = data.category === 'シューズ';
         
-        if (hasColors || hasSizes) {
+        if (hasColors || hasSizes || isShoes) {
           if (hasColors && data.available_colors) {
             setSelectedColor(data.available_colors[0]);
           }
           if (hasSizes && data.available_sizes) {
             setSelectedSize(data.available_sizes[0]);
+          }
+          // シューズの場合サイズ入力リセット
+          if (isShoes) {
+            setShoeSizeInput('');
+            setShoeSizeUnit('cm');
           }
           setUrlStep('select');
         } else {
@@ -247,7 +258,16 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
   // カラー・サイズ選択を確定してフォームへ
   const handleConfirmSelection = () => {
     if (scrapedData) {
-      applyScrapedData(scrapedData, selectedColor, selectedSize);
+      // シューズの場合、単位付きサイズ文字列を生成
+      const isShoes = scrapedData.category === 'シューズ';
+      let finalSize = selectedSize;
+      if (isShoes && shoeSizeInput) {
+        finalSize = `${shoeSizeUnit} ${shoeSizeInput}`;
+      } else if (isShoes && selectedSize) {
+        // available_sizesから選択した場合も単位を付与
+        finalSize = `${shoeSizeUnit} ${selectedSize}`;
+      }
+      applyScrapedData(scrapedData, selectedColor, finalSize);
       setUrlStep('form');
     }
   };
@@ -507,6 +527,81 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                   </div>
                 )}
 
+                {/* ── シューズ専用サイズ選択 ── */}
+                {scrapedData.category === 'シューズ' && (
+                  <div className="space-y-3">
+                    <label className="text-sm tracking-wider block font-medium">
+                      サイズ / SIZE <span className="text-red-500">*</span>
+                    </label>
+
+                    {/* 単位選択タブ */}
+                    <div className="flex gap-2 flex-wrap">
+                      {(['cm', 'US', 'UK', 'EU', 'JP'] as const).map((unit) => (
+                        <button
+                          key={unit}
+                          type="button"
+                          onClick={() => setShoeSizeUnit(unit)}
+                          className={`px-4 py-2 text-sm font-medium border-2 transition ${
+                            shoeSizeUnit === unit
+                              ? 'border-gray-900 bg-gray-900 text-white'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                          }`}
+                        >
+                          {unit}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* サイズ候補ボタン（available_sizesがある場合） */}
+                    {scrapedData.available_sizes && scrapedData.available_sizes.length > 0 ? (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-2">サイトのサイズから選択:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {scrapedData.available_sizes.map((size, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => { setSelectedSize(size); setShoeSizeInput(size); }}
+                              className={`px-4 py-2 border-2 transition text-sm ${
+                                selectedSize === size
+                                  ? 'border-gray-900 bg-gray-900 text-white'
+                                  : 'border-gray-200 hover:border-gray-400'
+                              }`}
+                            >
+                              {size}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-2">または直接入力:</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500">サイズを入力してください:</p>
+                    )}
+
+                    {/* 手動入力 */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 px-3 py-2 border-2 border-gray-900 bg-gray-50 min-w-[64px]">
+                        <span className="text-sm font-bold text-gray-900">{shoeSizeUnit}</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={shoeSizeInput}
+                        onChange={(e) => { setShoeSizeInput(e.target.value); setSelectedSize(''); }}
+                        placeholder={shoeSizeUnit === 'cm' ? '27.5' : shoeSizeUnit === 'US' ? '9.5' : shoeSizeUnit === 'UK' ? '8.5' : shoeSizeUnit === 'EU' ? '43' : '27.5'}
+                        className="flex-1 px-4 py-2 border-2 border-gray-300 focus:outline-none focus:border-gray-900 text-lg font-medium"
+                      />
+                    </div>
+
+                    {/* プレビュー */}
+                    {(shoeSizeInput || selectedSize) && (
+                      <div className="flex items-center gap-2 p-3 bg-gray-900 text-white text-sm">
+                        <span className="font-medium">登録サイズ:</span>
+                        <span className="text-lg font-bold">{shoeSizeUnit} {shoeSizeInput || selectedSize}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* 確定ボタン */}
                 <div className="flex gap-3">
                   <button
@@ -522,7 +617,8 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                   <button
                     type="button"
                     onClick={handleConfirmSelection}
-                    className="flex-1 px-4 py-3 bg-gray-900 text-white hover:bg-gray-800 transition"
+                    disabled={scrapedData.category === 'シューズ' && !shoeSizeInput && !selectedSize}
+                    className="flex-1 px-4 py-3 bg-gray-900 text-white hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     CONFIRM & ADD
                   </button>
