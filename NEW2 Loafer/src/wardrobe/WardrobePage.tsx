@@ -333,12 +333,12 @@ export default function WardrobePage() {
         <div className="mb-8 border-b border-gray-200">
           <div className="flex gap-6 overflow-x-auto">
             {[
-              { key: 'items', icon: Package, label: 'アイテム' },
-              { key: 'styling', icon: ImageIcon, label: 'スタイリング' },
-              { key: 'dashboard', icon: BarChart3, label: 'ダッシュボード' },
-              { key: 'ai-assistant', icon: Bot, label: 'AI ASSISTANT' },
-              { key: 'foot-scan', icon: Footprints, label: '足の測定' },
-            ].map(({ key, icon: Icon, label }) => (
+              { key: 'items', icon: Package, label: 'ITEMS', labelJa: 'アイテム' },
+              { key: 'styling', icon: ImageIcon, label: 'STYLING', labelJa: 'スタイリング' },
+              { key: 'dashboard', icon: BarChart3, label: 'DASHBOARD', labelJa: 'ダッシュボード' },
+              { key: 'ai-assistant', icon: Bot, label: 'AI ASSISTANT', labelJa: 'AIアシスタント' },
+              { key: 'foot-scan', icon: Footprints, label: 'FOOT SCAN', labelJa: '足の測定' },
+            ].map(({ key, icon: Icon, label, labelJa }) => (
               <button
                 key={key}
                 onClick={() => setViewMode(key as typeof viewMode)}
@@ -348,9 +348,12 @@ export default function WardrobePage() {
                     : 'border-transparent text-gray-500 hover:text-gray-900'
                 }`}
               >
-                <span className="flex items-center gap-2 text-sm tracking-wider">
-                  <Icon className="w-4 h-4" />
-                  {label}
+                <span className="flex flex-col items-center gap-0.5 text-xs tracking-wider">
+                  <span className="flex items-center gap-1.5">
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </span>
+                  <span className="text-[10px] opacity-60">{labelJa}</span>
                 </span>
               </button>
             ))}
@@ -369,7 +372,7 @@ export default function WardrobePage() {
                 className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white hover:bg-gray-800 transition"
               >
                 <Plus className="w-5 h-5" />
-                アイテムを追加
+                <span>ADD ITEM <span className="text-xs opacity-70">/ 追加</span></span>
               </button>
               {/* AIクレジット残数 */}
               <div className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">
@@ -378,7 +381,7 @@ export default function WardrobePage() {
               </div>
             </div>
 
-            <h2 className="text-2xl tracking-wider font-light mb-6">マイアイテム</h2>
+            <h2 className="text-2xl tracking-wider font-light mb-6">MY ITEMS <span className="text-lg text-gray-400">/ マイアイテム</span></h2>
             
             {/* カテゴリータブ */}
             <div className="mb-6 border-b border-gray-200 overflow-x-auto">
@@ -442,7 +445,7 @@ export default function WardrobePage() {
                 className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white hover:bg-gray-800 transition"
               >
                 <Plus className="w-5 h-5" />
-                スタイリング写真を追加
+                <span>ADD PHOTO <span className="text-xs opacity-70">/ 写真追加</span></span>
               </button>
             </div>
 
@@ -498,9 +501,9 @@ export default function WardrobePage() {
                     }`}
                   >
                     <span className="text-sm tracking-wider">
-                      {tab === 'expense' && '出費管理'}
-                      {tab === 'sell' && '売却管理'}
-                      {tab === 'portfolio' && 'ポートフォリオ'}
+                      {tab === 'expense' && <span>EXPENSES <span className="text-xs opacity-60">/ 出費管理</span></span>}
+                      {tab === 'sell' && <span>SALES <span className="text-xs opacity-60">/ 売却管理</span></span>}
+                      {tab === 'portfolio' && <span>PORTFOLIO <span className="text-xs opacity-60">/ ポートフォリオ</span></span>}
                     </span>
                   </button>
                 ))}

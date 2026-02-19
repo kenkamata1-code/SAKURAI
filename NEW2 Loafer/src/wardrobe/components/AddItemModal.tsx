@@ -336,7 +336,8 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
       <div className="bg-white max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
           <h2 className="text-2xl tracking-wider font-light">
-            {editingItem ? 'アイテムを編集' : 'アイテムを追加'}
+            {editingItem ? 'EDIT ITEM' : 'ADD ITEM'}
+            <span className="text-sm text-gray-400 font-normal ml-2">{editingItem ? '/ 編集' : '/ 追加'}</span>
           </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X className="w-6 h-6" />
@@ -352,7 +353,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                   addMethod === 'manual' ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                手動で追加
+                MANUAL <span className="text-xs opacity-70">/ 手動</span>
               </button>
               <button
                 onClick={() => setAddMethod('url')}
@@ -360,7 +361,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                   addMethod === 'url' ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                URLから追加
+                FROM URL <span className="text-xs opacity-70">/ URL</span>
               </button>
               <button
                 onClick={() => setAddMethod('tag')}
@@ -368,7 +369,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                   addMethod === 'tag' ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                タグから追加
+                FROM TAG <span className="text-xs opacity-70">/ タグ</span>
               </button>
             </div>
           )}
@@ -515,14 +516,14 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                     }}
                     className="flex-1 px-4 py-3 border border-gray-300 hover:bg-gray-50 transition"
                   >
-                    戻る
+                    BACK
                   </button>
                   <button
                     type="button"
                     onClick={handleConfirmSelection}
                     className="flex-1 px-4 py-3 bg-gray-900 text-white hover:bg-gray-800 transition"
                   >
-                    この内容で登録
+                    CONFIRM & ADD
                   </button>
                 </div>
               </div>
@@ -532,7 +533,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
               <div className="border-2 border-dashed border-gray-300 p-6">
                 <label className="flex flex-col items-center gap-3 cursor-pointer">
                   <ImageIcon className="w-12 h-12 text-gray-400" />
-                  <span className="text-sm text-gray-600">タグ画像をアップロード</span>
+                  <span className="text-sm text-gray-600">UPLOAD TAG IMAGE <span className="text-xs text-gray-400">/ タグ画像をアップロード</span></span>
                   <input
                     type="file"
                     accept="image/*"
@@ -543,7 +544,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                     className="hidden"
                   />
                   <button type="button" className="px-6 py-2 border border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white transition">
-                    画像を選択
+                    SELECT IMAGE
                   </button>
                 </label>
                 {loading && (
@@ -561,7 +562,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
             <div>
               <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                 <Upload className="w-4 h-4" />
-                商品画像（最大3枚）
+                IMAGES <span className="text-gray-400 font-normal text-xs">/ 商品画像（最大3枚）</span>
               </label>
               <div className="grid grid-cols-3 gap-4">
                 {[
@@ -599,7 +600,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                       disabled={loading || removingBackground}
                       className="flex-1 px-4 py-2 border border-gray-300 hover:bg-gray-100 transition"
                     >
-                      そのままアップロード
+                      UPLOAD AS IS
                     </button>
                     <button
                       type="button"
@@ -608,7 +609,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                       className="flex-1 px-4 py-2 bg-gray-900 text-white hover:bg-gray-800 transition flex items-center justify-center gap-2"
                     >
                       <Sparkles className="w-4 h-4" />
-                      {removingBackground ? '処理中...' : '背景を削除'}
+                      {removingBackground ? 'PROCESSING...' : 'REMOVE BG'}
                     </button>
                   </div>
                 </div>
@@ -619,7 +620,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
             <div>
               <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                 <Tag className="w-4 h-4" />
-                商品名 <span className="text-red-500">*</span>
+                NAME <span className="text-gray-400 font-normal">/ 商品名</span> <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -633,7 +634,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm tracking-wider mb-2 block">ブランド</label>
+                <label className="text-sm tracking-wider mb-2 block">BRAND <span className="text-gray-400 font-normal text-xs">/ ブランド</span></label>
                 <input
                   type="text"
                   value={formData.brand}
@@ -643,7 +644,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                 />
               </div>
               <div>
-                <label className="text-sm tracking-wider mb-2 block">商品番号</label>
+                <label className="text-sm tracking-wider mb-2 block">PRODUCT NO. <span className="text-gray-400 font-normal text-xs">/ 商品番号</span></label>
                 <input
                   type="text"
                   value={formData.product_number}
@@ -658,7 +659,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
               <div>
                 <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                   <Ruler className="w-4 h-4" />
-                  サイズ
+                  SIZE <span className="text-gray-400 font-normal text-xs">/ サイズ</span>
                 </label>
                 <input
                   type="text"
@@ -669,7 +670,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                 />
               </div>
               <div>
-                <label className="text-sm tracking-wider mb-2 block">モデル着用サイズ</label>
+                <label className="text-sm tracking-wider mb-2 block">MODEL SIZE <span className="text-gray-400 font-normal text-xs">/ モデル着用サイズ</span></label>
                 <input
                   type="text"
                   value={formData.model_worn_size}
@@ -683,8 +684,8 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
             <div>
               <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                 <Ruler className="w-4 h-4" />
-                採寸情報
-              </label>
+                  MEASUREMENTS <span className="text-gray-400 font-normal text-xs">/ 採寸情報</span>
+                </label>
               <textarea
                 value={formData.measurements}
                 onChange={(e) => setFormData({ ...formData, measurements: e.target.value })}
@@ -695,7 +696,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm tracking-wider mb-2 block">カラー</label>
+                <label className="text-sm tracking-wider mb-2 block">COLOR <span className="text-gray-400 font-normal text-xs">/ カラー</span></label>
                 <input
                   type="text"
                   value={formData.color}
@@ -705,7 +706,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                 />
               </div>
               <div>
-                <label className="text-sm tracking-wider mb-2 block">カテゴリー</label>
+                <label className="text-sm tracking-wider mb-2 block">CATEGORY <span className="text-gray-400 font-normal text-xs">/ カテゴリー</span></label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -724,7 +725,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
               <div>
                 <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                   <Calendar className="w-4 h-4" />
-                  購入日
+                  PURCHASE DATE <span className="text-gray-400 font-normal text-xs">/ 購入日</span>
                 </label>
                 <input
                   type="date"
@@ -736,7 +737,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
               <div>
                 <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                   <DollarSign className="w-4 h-4" />
-                  通貨
+                  CURRENCY <span className="text-gray-400 font-normal text-xs">/ 通貨</span>
                 </label>
                 <select
                   value={formData.currency}
@@ -753,7 +754,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
             <div>
               <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                 <DollarSign className="w-4 h-4" />
-                購入価格
+                  PRICE <span className="text-gray-400 font-normal text-xs">/ 購入価格</span>
               </label>
               <input
                 type="number"
@@ -767,7 +768,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
             <div>
               <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                 <MapPin className="w-4 h-4" />
-                購入場所
+                  STORE <span className="text-gray-400 font-normal text-xs">/ 購入場所</span>
               </label>
               <input
                 type="text"
@@ -781,7 +782,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
             <div>
               <label className="flex items-center gap-2 text-sm tracking-wider mb-2">
                 <FileText className="w-4 h-4" />
-                商品の詳細
+                  NOTES <span className="text-gray-400 font-normal text-xs">/ 商品の詳細</span>
               </label>
               <textarea
                 value={formData.notes}
@@ -796,7 +797,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
               disabled={loading || !formData.name}
               className="w-full px-6 py-3 bg-gray-900 text-white hover:bg-gray-800 transition disabled:bg-gray-400"
             >
-              {loading ? '保存中...' : editingItem ? '更新' : '追加'}
+              {loading ? 'SAVING...' : editingItem ? 'UPDATE' : 'ADD'}
             </button>
               </>
             )}

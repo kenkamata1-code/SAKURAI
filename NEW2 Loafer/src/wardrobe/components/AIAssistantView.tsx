@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, Sparkles, ShoppingBag, CloudSun, Ruler, Palette, Users, Zap, Camera, Image as ImageIcon, X, Check, Loader2, ArrowLeft } from 'lucide-react';
+import { Bot, Send, Sparkles, ShoppingBag, CloudSun, Ruler, Palette, Users, Zap, Camera, Image as ImageIcon, X, Check, Loader2, ArrowLeft, Paperclip } from 'lucide-react';
 import { apiClient } from '../lib/api-client';
 import { useWardrobeStore } from '../lib/store';
 import { useAuth } from '../../contexts/AuthContext';
@@ -82,7 +82,10 @@ export default function AIAssistantView({
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [pendingProduct, setPendingProduct] = useState<Partial<WardrobeItem> | null>(null);
+  const [pastedFile, setPastedFile] = useState<File | null>(null);
+  const [pastedImagePreview, setPastedImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // 日付が変わったらリセット
@@ -255,6 +258,14 @@ export default function AIAssistantView({
   // テキストメッセージを送信（Gemini 2.5 Flash）
   const handleSendMessage = async (message?: string) => {
     const inputMessage = message || aiInput.trim();
+    // 添付画像がある場合は画像分析フローへ
+    if (pastedFile && canUseAI) {
+      const file = pastedFile;
+      clearPastedImage();
+      setAiInput('');
+      await handleImageUpload(file);
+      return;
+    }
     if (!inputMessage || !canUseAI) return;
 
     incrementUsage();
@@ -278,12 +289,35 @@ export default function AIAssistantView({
       }
     } catch (error) {
       console.error('AI chat error:', error);
-      setAiMessages(prev => [...prev, {
-        role: 'assistant',
+      setAiMessages(prev => [...prev, { 
+        role: 'assistant', 
         content: 'すみません、エラーが発生しました。しばらくしてからもう一度お試しください。',
       }]);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  // 添付・ペースト画像のクリア
+  const clearPastedImage = () => {
+    if (pastedImagePreview) URL.revokeObjectURL(pastedImagePreview);
+    setPastedFile(null);
+    setPastedImagePreview(null);
+  };
+
+  // クリップボードからのペーストを処理
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) {
+          clearPastedImage();
+          setPastedFile(file);
+          setPastedImagePreview(URL.createObjectURL(file));
+        }
+        break;
+      }
     }
   };
 
@@ -473,8 +507,8 @@ export default function AIAssistantView({
       </div>
 
       {/* 入力エリア */}
-      <div className="flex gap-2">
-        {/* 画像アップロードボタン */}
+      <div className="flex gap-2 items-end">
+        {/* カメラ（画像分析）ボタン */}
         <input
           ref={fileInputRef}
           type="file"
@@ -482,8 +516,22 @@ export default function AIAssistantView({
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
+            if (file) handleImageUpload(file);
+            e.target.value = '';
+          }}
+        />
+        {/* 添付ファイル選択 */}
+        <input
+          ref={attachInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
             if (file) {
-              handleImageUpload(file);
+              clearPastedImage();
+              setPastedFile(file);
+              setPastedImagePreview(URL.createObjectURL(file));
             }
             e.target.value = '';
           }}
@@ -491,31 +539,57 @@ export default function AIAssistantView({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={!canUseAI || aiLoading}
-          className="flex items-center justify-center w-12 h-12 border border-gray-300 rounded-full hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          title="画像をアップロード"
+          className="flex items-center justify-center w-12 h-12 border border-gray-300 rounded-full hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+          title="カメラ / 商品画像を分析"
         >
           <Camera className="w-5 h-5 text-gray-600" />
         </button>
 
-        {/* テキスト入力 */}
+        {/* テキスト入力ラッパー */}
         <div className="flex-1 relative">
+          {/* 添付画像プレビュー */}
+          {pastedImagePreview && (
+            <div className="mb-2 relative inline-block">
+              <img
+                src={pastedImagePreview}
+                alt="添付画像"
+                className="h-20 w-20 object-cover rounded-lg border border-gray-300"
+              />
+              <button
+                type="button"
+                onClick={clearPastedImage}
+                className="absolute -top-2 -right-2 w-5 h-5 bg-gray-900 text-white rounded-full flex items-center justify-center hover:bg-gray-700 transition"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => attachInputRef.current?.click()}
+              disabled={!canUseAI || aiLoading}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition disabled:opacity-40"
+              title="画像を添付（またはCtrl+Vでペースト）"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
           <textarea
             value={aiInput}
             onChange={(e) => setAiInput(e.target.value)}
-            placeholder={canUseAI ? "メッセージを入力（Shift+Enterで改行、Enterで送信）" : "本日の利用上限に達しました"}
+            placeholder={canUseAI ? "メッセージを入力（画像はCtrl+Vでペースト可）" : "本日の利用上限に達しました"}
             disabled={!canUseAI || aiLoading}
             rows={1}
-            className="w-full px-5 py-4 pr-14 border border-gray-300 rounded-2xl focus:outline-none focus:border-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden leading-relaxed"
+            className="w-full pl-10 pr-14 py-4 border border-gray-300 rounded-2xl focus:outline-none focus:border-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden leading-relaxed"
             style={{ minHeight: '52px', maxHeight: '160px' }}
+            onPaste={handlePaste}
             onInput={(e) => {
-              // 内容に合わせて高さを自動調整
               const el = e.currentTarget;
               el.style.height = 'auto';
               el.style.height = Math.min(el.scrollHeight, 160) + 'px';
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && canUseAI && !aiLoading) {
-                // Enterのみ → 送信
                 e.preventDefault();
                 handleSendMessage();
               }
@@ -524,11 +598,12 @@ export default function AIAssistantView({
           />
           <button
             onClick={() => handleSendMessage()}
-            disabled={aiLoading || !aiInput.trim() || !canUseAI}
+            disabled={aiLoading || (!aiInput.trim() && !pastedFile) || !canUseAI}
             className="absolute right-2 bottom-2 w-10 h-10 bg-gray-900 text-white rounded-full flex items-center justify-center hover:bg-gray-800 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             <Send className="w-4 h-4" />
           </button>
+          </div>
         </div>
       </div>
 

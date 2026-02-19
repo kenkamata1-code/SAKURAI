@@ -8,7 +8,7 @@ interface ItemCardProps {
   onDelete: (id: string) => void;
   onDiscard: (id: string) => void;
   onRestore: (id: string) => void;
-  onSell: (item: WardrobeItem) => void;
+  onSell?: (item: WardrobeItem) => void;
 }
 
 export default function ItemCard({ 
@@ -95,42 +95,42 @@ export default function ItemCard({
           <div className="flex flex-col gap-1">
             {item.is_from_shop && (
               <span className="text-xs px-2 py-1 bg-blue-50 text-blue-600 border border-blue-200">
-                購入済
+                PURCHASED
               </span>
             )}
             {item.is_sold && (
               <span className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200">
-                売却済
+                SOLD
               </span>
             )}
           </div>
         </div>
         
         <div className="space-y-1 text-sm text-gray-600 mb-4">
-          {item.size && <p>サイズ: {item.size}</p>}
-          {item.color && <p>カラー: {item.color}</p>}
+          {item.size && <p><span className="text-xs tracking-wider text-gray-400">SIZE</span> {item.size}</p>}
+          {item.color && <p><span className="text-xs tracking-wider text-gray-400">COLOR</span> {item.color}</p>}
           {item.purchase_date && (
-            <p>購入日: {new Date(item.purchase_date).toLocaleDateString('ja-JP')}</p>
+            <p><span className="text-xs tracking-wider text-gray-400">DATE</span> {new Date(item.purchase_date).toLocaleDateString('ja-JP')}</p>
           )}
         </div>
         
         {item.is_discarded && item.discarded_at && (
           <div className="mb-3 px-3 py-2 bg-gray-100 text-xs text-gray-600">
-            <p>廃棄日: {new Date(item.discarded_at).toLocaleDateString('ja-JP')}</p>
+            <p><span className="text-xs tracking-wider text-gray-500">DISCARDED</span> {new Date(item.discarded_at).toLocaleDateString('ja-JP')}</p>
           </div>
         )}
         
         {item.is_sold && item.sold_date && (
           <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 text-xs text-gray-700">
-            <p className="font-medium mb-1">売却情報</p>
-            <p>売却日: {new Date(item.sold_date).toLocaleDateString('ja-JP')}</p>
+            <p className="font-medium mb-1 tracking-wider">SOLD INFO <span className="font-normal text-gray-500 text-xs">/ 売却情報</span></p>
+            <p><span className="text-xs text-gray-500">DATE</span> {new Date(item.sold_date).toLocaleDateString('ja-JP')}</p>
             {item.sold_price && (
-              <p>売却価格: {item.sold_currency === 'JPY' ? '¥' : item.sold_currency}{item.sold_price.toLocaleString()}</p>
+              <p><span className="text-xs text-gray-500">PRICE</span> {item.sold_currency === 'JPY' ? '¥' : item.sold_currency}{item.sold_price.toLocaleString()}</p>
             )}
-            {item.sold_location && <p>売却先: {item.sold_location}</p>}
+            {item.sold_location && <p><span className="text-xs text-gray-500">SOLD AT</span> {item.sold_location}</p>}
             {item.purchase_price && item.sold_price && (
               <p className={`font-medium ${item.sold_price > item.purchase_price ? 'text-green-600' : 'text-red-600'}`}>
-                損益: {item.sold_currency === 'JPY' ? '¥' : item.sold_currency}
+                <span className="text-xs">P&L</span> {item.sold_currency === 'JPY' ? '¥' : item.sold_currency}
                 {(item.sold_price - item.purchase_price).toLocaleString()}
               </p>
             )}
@@ -145,10 +145,10 @@ export default function ItemCard({
                 className="flex-1 px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 transition flex items-center justify-center gap-2"
               >
                 <Edit className="w-4 h-4" />
-                編集
+                EDIT
               </button>
               <button
-                onClick={() => onSell(item)}
+                onClick={() => onSell?.(item)}
                 className="px-4 py-2 text-sm border border-green-600 text-green-600 hover:bg-green-50 transition flex items-center gap-2"
                 title="売却"
               >
@@ -180,7 +180,7 @@ export default function ItemCard({
                 className="flex-1 px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 transition flex items-center justify-center gap-2"
               >
                 <Edit className="w-4 h-4" />
-                編集
+                EDIT
               </button>
               {item.is_discarded && (
                 <button
