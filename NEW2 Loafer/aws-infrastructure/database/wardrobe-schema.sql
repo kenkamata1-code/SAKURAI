@@ -80,15 +80,23 @@ CREATE TABLE IF NOT EXISTS foot_measurements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     cognito_user_id VARCHAR(255) NOT NULL,
     foot_type TEXT NOT NULL CHECK (foot_type IN ('left', 'right')),
-    length_mm NUMERIC(5, 1) NOT NULL,
-    width_mm NUMERIC(5, 1) NOT NULL,
-    arch_height_mm NUMERIC(5, 1),
-    instep_height_mm NUMERIC(5, 1),
+    length_mm NUMERIC(5, 1) NOT NULL,           -- ①足長
+    girth_mm NUMERIC(5, 1),                      -- ②足囲（周囲長）
+    width_mm NUMERIC(5, 1),                      -- ③足幅
+    arch_height_mm NUMERIC(5, 1),                -- 旧フィールド（後方互換）
+    instep_height_mm NUMERIC(5, 1),              -- ④甲の高さ（インステップ）
+    heel_width_mm NUMERIC(5, 1),                 -- ⑤かかと幅
+    toe_shape VARCHAR(20),                        -- ⑥指の形（egyptian / greek / square）
     scan_image_url TEXT,
     measurement_date TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
+
+-- 既存DBへのマイグレーション
+ALTER TABLE foot_measurements ADD COLUMN IF NOT EXISTS girth_mm NUMERIC(5, 1);
+ALTER TABLE foot_measurements ADD COLUMN IF NOT EXISTS heel_width_mm NUMERIC(5, 1);
+ALTER TABLE foot_measurements ADD COLUMN IF NOT EXISTS toe_shape VARCHAR(20);
 
 CREATE INDEX IF NOT EXISTS idx_foot_measurements_user ON foot_measurements(cognito_user_id);
 

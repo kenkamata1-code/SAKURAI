@@ -1384,13 +1384,21 @@ export const handler = async (event) => {
     if (path === "/v1/wardrobe/foot-measurements" && method === "POST") {
       if (!userId) return response(401, { error: "認証が必要です" });
       
+      // DB マイグレーション（新カラムが存在しない場合は追加）
+      try {
+        await db.query(`ALTER TABLE foot_measurements ADD COLUMN IF NOT EXISTS girth_mm NUMERIC(5,1)`);
+        await db.query(`ALTER TABLE foot_measurements ADD COLUMN IF NOT EXISTS heel_width_mm NUMERIC(5,1)`);
+        await db.query(`ALTER TABLE foot_measurements ADD COLUMN IF NOT EXISTS toe_shape VARCHAR(20)`);
+      } catch (_) { /* カラムが既に存在する場合は無視 */ }
+
       const parsedBody = JSON.parse(body || "{}");
-      const { foot_type, length_mm, width_mm, arch_height_mm, instep_height_mm, scan_image_url } = parsedBody;
+      const { foot_type, length_mm, width_mm, girth_mm, instep_height_mm, heel_width_mm, toe_shape, scan_image_url } = parsedBody;
 
       const result = await db.query(`
-        INSERT INTO foot_measurements (cognito_user_id, foot_type, length_mm, width_mm, arch_height_mm, instep_height_mm, scan_image_url)
-        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
-      `, [userId, foot_type, length_mm, width_mm, arch_height_mm, instep_height_mm, scan_image_url]);
+        INSERT INTO foot_measurements 
+          (cognito_user_id, foot_type, length_mm, girth_mm, width_mm, instep_height_mm, heel_width_mm, toe_shape, scan_image_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
+      `, [userId, foot_type, length_mm, girth_mm || null, width_mm || null, instep_height_mm || null, heel_width_mm || null, toe_shape || null, scan_image_url || null]);
       return response(200, result.rows[0]);
     }
 
@@ -1912,8 +1920,8 @@ JSONのみを返してください。`
       try {
         // ユーザーのワードローブ情報を取得してコンテキストに含める
         const wardrobeResult = await db.query(
-          `SELECT name, brand, category, size, color, purchase_price, currency, purchase_date, description
-           FROM wardrobe_items WHERE user_id = $1 AND is_discarded = false AND is_sold = false
+          `SELECT name, brand, category, size, color, purchase_price, currency, purchase_date, notes
+           FROM wardrobe_items WHERE cognito_user_id = $1 AND is_discarded = false AND is_sold = false
            ORDER BY created_at DESC LIMIT 50`,
           [userId]
         );
@@ -1921,7 +1929,7 @@ JSONのみを返してください。`
 
         // 足のサイズ情報も取得
         const measureResult = await db.query(
-          `SELECT foot_type, length_mm, width_mm FROM foot_measurements WHERE user_id = $1 AND is_active = true`,
+          `SELECT foot_type, length_mm, width_mm FROM foot_measurements WHERE cognito_user_id = $1 AND is_active = true`,
           [userId]
         );
         const measurements = measureResult.rows;
@@ -1932,7 +1940,7 @@ JSONのみを返してください。`
 
 【ユーザーの所有アイテム一覧（最新50件）】
 ${items.length > 0 
-  ? items.map(i => `- ${i.brand ? i.brand + ' ' : ''}${i.name}（${i.category}${i.size ? ', サイズ:' + i.size : ''}${i.color ? ', ' + i.color : ''}${i.purchase_price ? ', ' + i.purchase_price + i.currency : ''}）`).join('\n')
+  ? items.map(i => `- ${i.brand ? i.brand + ' ' : ''}${i.name}（${i.category || ''}${i.size ? ', サイズ:' + i.size : ''}${i.color ? ', ' + i.color : ''}${i.purchase_price ? ', ¥' + i.purchase_price : ''}）`).join('\n')
   : '（まだアイテムが登録されていません）'
 }
 

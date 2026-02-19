@@ -71,11 +71,15 @@ export default function WardrobePage() {
   // 足測定用
   const [footForm, setFootForm] = useState({
     foot_type: 'left' as 'left' | 'right',
-    length_mm: '',
-    width_mm: '',
-    arch_height_mm: '',
-    instep_height_mm: '',
+    length_mm: '',        // ①足長
+    girth_mm: '',         // ②足囲
+    width_mm: '',         // ③足幅
+    instep_height_mm: '', // ④甲の高さ
+    heel_width_mm: '',    // ⑤かかと幅
+    toe_shape: '',        // ⑥指の形
   });
+  // 測定方法説明の開閉
+  const [expandedGuide, setExpandedGuide] = useState<number | null>(null);
   const [footLoading, setFootLoading] = useState(false);
   const [showFootMeasureModal, setShowFootMeasureModal] = useState(false);
   
@@ -211,8 +215,8 @@ export default function WardrobePage() {
 
   // 足測定の追加
   const handleAddFootMeasurement = async () => {
-    if (!user || !footForm.length_mm || !footForm.width_mm) {
-      alert('足長と足幅は必須です');
+    if (!user || !footForm.length_mm) {
+      alert('足長は必須です');
       return;
     }
     
@@ -221,9 +225,11 @@ export default function WardrobePage() {
       await addMeasurement(user.id, {
         foot_type: footForm.foot_type,
         length_mm: parseFloat(footForm.length_mm),
-        width_mm: parseFloat(footForm.width_mm),
-        arch_height_mm: footForm.arch_height_mm ? parseFloat(footForm.arch_height_mm) : undefined,
+        girth_mm: footForm.girth_mm ? parseFloat(footForm.girth_mm) : undefined,
+        width_mm: footForm.width_mm ? parseFloat(footForm.width_mm) : 0,
         instep_height_mm: footForm.instep_height_mm ? parseFloat(footForm.instep_height_mm) : undefined,
+        heel_width_mm: footForm.heel_width_mm ? parseFloat(footForm.heel_width_mm) : undefined,
+        toe_shape: footForm.toe_shape || undefined,
         is_active: true,
       });
       
@@ -231,9 +237,11 @@ export default function WardrobePage() {
       setFootForm({
         foot_type: 'left',
         length_mm: '',
+        girth_mm: '',
         width_mm: '',
-        arch_height_mm: '',
         instep_height_mm: '',
+        heel_width_mm: '',
+        toe_shape: '',
       });
     } catch (error) {
       console.error('Error adding measurement:', error);
@@ -654,27 +662,20 @@ export default function WardrobePage() {
                     return <p className="text-gray-500 py-4">測定データがありません</p>;
                   }
                   return (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600">足長</span>
-                        <span className="font-medium">{activeLeft.length_mm} mm</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600">足幅</span>
-                        <span className="font-medium">{activeLeft.width_mm} mm</span>
-                      </div>
-                      {activeLeft.arch_height_mm && (
-                        <div className="flex justify-between items-center py-2">
-                          <span className="text-gray-600">アーチ高さ</span>
-                          <span className="font-medium">{activeLeft.arch_height_mm} mm</span>
+                    <div className="space-y-2 divide-y divide-gray-100">
+                      {[
+                        { l: '① 足長 FOOT LENGTH', v: activeLeft.length_mm, unit: 'mm', always: true },
+                        { l: '② 足囲 GIRTH', v: activeLeft.girth_mm, unit: 'mm', always: false },
+                        { l: '③ 足幅 WIDTH', v: activeLeft.width_mm, unit: 'mm', always: false },
+                        { l: '④ 甲の高さ INSTEP', v: activeLeft.instep_height_mm, unit: 'mm', always: false },
+                        { l: '⑤ かかと幅 HEEL WIDTH', v: activeLeft.heel_width_mm, unit: 'mm', always: false },
+                        { l: '⑥ 指の形 TOE SHAPE', v: activeLeft.toe_shape, unit: '', always: false },
+                      ].filter(r => r.always || r.v).map(r => (
+                        <div key={r.l} className="flex justify-between items-center py-2">
+                          <span className="text-gray-500 text-sm">{r.l}</span>
+                          <span className="font-medium text-sm">{r.v}{r.unit && r.v ? ` ${r.unit}` : ''}</span>
                         </div>
-                      )}
-                      {activeLeft.instep_height_mm && (
-                        <div className="flex justify-between items-center py-2">
-                          <span className="text-gray-600">甲の高さ</span>
-                          <span className="font-medium">{activeLeft.instep_height_mm} mm</span>
-                        </div>
-                      )}
+                      ))}
                       <p className="text-xs text-gray-400 pt-2">
                         測定日: {new Date(activeLeft.measurement_date || activeLeft.created_at || '').toLocaleDateString('ja-JP')}
                       </p>
@@ -693,27 +694,20 @@ export default function WardrobePage() {
                     return <p className="text-gray-500 py-4">測定データがありません</p>;
                   }
                   return (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600">足長</span>
-                        <span className="font-medium">{activeRight.length_mm} mm</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600">足幅</span>
-                        <span className="font-medium">{activeRight.width_mm} mm</span>
-                      </div>
-                      {activeRight.arch_height_mm && (
-                        <div className="flex justify-between items-center py-2">
-                          <span className="text-gray-600">アーチ高さ</span>
-                          <span className="font-medium">{activeRight.arch_height_mm} mm</span>
+                    <div className="space-y-2 divide-y divide-gray-100">
+                      {[
+                        { l: '① 足長 FOOT LENGTH', v: activeRight.length_mm, unit: 'mm', always: true },
+                        { l: '② 足囲 GIRTH', v: activeRight.girth_mm, unit: 'mm', always: false },
+                        { l: '③ 足幅 WIDTH', v: activeRight.width_mm, unit: 'mm', always: false },
+                        { l: '④ 甲の高さ INSTEP', v: activeRight.instep_height_mm, unit: 'mm', always: false },
+                        { l: '⑤ かかと幅 HEEL WIDTH', v: activeRight.heel_width_mm, unit: 'mm', always: false },
+                        { l: '⑥ 指の形 TOE SHAPE', v: activeRight.toe_shape, unit: '', always: false },
+                      ].filter(r => r.always || r.v).map(r => (
+                        <div key={r.l} className="flex justify-between items-center py-2">
+                          <span className="text-gray-500 text-sm">{r.l}</span>
+                          <span className="font-medium text-sm">{r.v}{r.unit && r.v ? ` ${r.unit}` : ''}</span>
                         </div>
-                      )}
-                      {activeRight.instep_height_mm && (
-                        <div className="flex justify-between items-center py-2">
-                          <span className="text-gray-600">甲の高さ</span>
-                          <span className="font-medium">{activeRight.instep_height_mm} mm</span>
-                        </div>
-                      )}
+                      ))}
                       <p className="text-xs text-gray-400 pt-2">
                         測定日: {new Date(activeRight.measurement_date || activeRight.created_at || '').toLocaleDateString('ja-JP')}
                       </p>
@@ -738,10 +732,13 @@ export default function WardrobePage() {
                               <span className="text-xs bg-gray-900 text-white px-2 py-0.5 rounded">アクティブ</span>
                             )}
                           </div>
-                          <div className="text-sm text-gray-600">
-                            足長: {m.length_mm}mm / 足幅: {m.width_mm}mm
-                            {m.arch_height_mm && ` / アーチ: ${m.arch_height_mm}mm`}
-                            {m.instep_height_mm && ` / 甲: ${m.instep_height_mm}mm`}
+                          <div className="text-sm text-gray-600 space-y-0.5">
+                            <span>①足長: {m.length_mm}mm</span>
+                            {m.girth_mm ? <span> / ②足囲: {m.girth_mm}mm</span> : null}
+                            {m.width_mm ? <span> / ③足幅: {m.width_mm}mm</span> : null}
+                            {m.instep_height_mm ? <span> / ④甲: {m.instep_height_mm}mm</span> : null}
+                            {m.heel_width_mm ? <span> / ⑤かかと: {m.heel_width_mm}mm</span> : null}
+                            {m.toe_shape ? <span> / ⑥{m.toe_shape === 'egyptian' ? 'エジプト型' : m.toe_shape === 'greek' ? 'ギリシャ型' : 'スクエア型'}</span> : null}
                           </div>
                           <p className="text-xs text-gray-400 mt-1">
                             {new Date(m.measurement_date || m.created_at || '').toLocaleDateString('ja-JP')}
@@ -777,143 +774,168 @@ export default function WardrobePage() {
             {/* 測定追加モーダル */}
             {showFootMeasureModal && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white max-w-lg w-full rounded-lg overflow-hidden">
-                  <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="text-xl font-medium">足の測定を追加</h3>
+                <div className="bg-white max-w-2xl w-full rounded-lg overflow-hidden max-h-[90vh] flex flex-col">
+                  <div className="p-6 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <div>
+                      <h3 className="text-xl font-medium tracking-wider">ADD MEASUREMENT <span className="text-sm font-normal text-gray-500">/ 足の測定を追加</span></h3>
+                      <p className="text-xs text-gray-500 mt-1">裸足・立位・夕方に測定 / 左右測定し大きい方を基準に</p>
+                    </div>
                     <button onClick={() => setShowFootMeasureModal(false)} className="text-gray-500 hover:text-gray-700">
                       <X className="w-6 h-6" />
                     </button>
                   </div>
                   
-                  <div className="p-6 space-y-6">
-                    {/* カメラ起動ボタン（iOS用） */}
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 mb-3">iPhoneをお使いの場合、カメラで足を撮影して測定できます</p>
-                      <label className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition cursor-pointer">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
-                          <circle cx="12" cy="13" r="3"></circle>
-                        </svg>
-                        カメラで撮影
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              // 将来的にAI分析で足のサイズを自動検出
-                              alert('撮影した画像からの自動測定機能は近日公開予定です。現在は下のフォームから手動で入力してください。');
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-200"></div>
-                      </div>
-                      <div className="relative flex justify-center">
-                        <span className="px-4 bg-white text-sm text-gray-500">または手動で入力</span>
+                  <div className="p-6 space-y-5 overflow-y-auto">
+                    {/* 足を選択 */}
+                    <div>
+                      <label className="block text-sm font-medium tracking-wider mb-2">FOOT / 測定する足</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[{ v: 'left', l: '左足 / LEFT' }, { v: 'right', l: '右足 / RIGHT' }].map(({ v, l }) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setFootForm({ ...footForm, foot_type: v as 'left' | 'right' })}
+                            className={`py-3 border rounded-lg transition text-sm ${
+                              footForm.foot_type === v ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {l}
+                          </button>
+                        ))}
                       </div>
                     </div>
 
-                    {/* 手動入力フォーム */}
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-2">足を選択</label>
-                        <div className="grid grid-cols-2 gap-3">
+                    {/* ① 足長 */}
+                    {[
+                      {
+                        num: 1, key: 'length_mm', label: '足長', en: 'FOOT LENGTH', unit: 'mm', required: true, placeholder: '265',
+                        purpose: '靴の基本サイズ（cm）を決める数値',
+                        how: 'かかとを壁に付けて紙の上に立ち、一番長い指の先端に印をつける。壁側の端から印までの距離を定規で測る。'
+                      },
+                      {
+                        num: 2, key: 'girth_mm', label: '足囲', en: 'GIRTH', unit: 'mm', required: false, placeholder: '230',
+                        purpose: 'E・2E・3Eのワイズ（横方向の太さ）を決める数値',
+                        how: '親指の付け根と小指の付け根の骨を触って確認し、そのラインを通るようにメジャーで足を一周させる。強く締めず軽く触れる程度で。'
+                      },
+                      {
+                        num: 3, key: 'width_mm', label: '足幅', en: 'FOOT WIDTH', unit: 'mm', required: false, placeholder: '102',
+                        purpose: '横幅の実寸を確認する数値（同ワイズでも圧迫が変わる）',
+                        how: '紙に足型をなぞり、足囲を測った位置の内側と外側の最大幅を直線で測る。'
+                      },
+                      {
+                        num: 4, key: 'instep_height_mm', label: '甲の高さ（インステップ）', en: 'INSTEP', unit: 'mm', required: false, placeholder: '65',
+                        purpose: '足の厚み・ボリューム確認。ここが合わないとサイズを上げても圧迫が解消しないことがある',
+                        how: '足の甲で一番高い位置を触って確認し、その部分をメジャーで一周測る。'
+                      },
+                      {
+                        num: 5, key: 'heel_width_mm', label: 'かかと幅', en: 'HEEL WIDTH', unit: 'mm', required: false, placeholder: '68',
+                        purpose: '靴の脱げやすさ・ホールド感に関係。細いと既製靴でかかとが浮きやすくなる',
+                        how: 'かかとの最も膨らんだ左右の位置を確認し、足型をもとに横幅を定規で測る。'
+                      },
+                    ].map(({ num, key, label, en, unit, required, placeholder, purpose, how }) => (
+                      <div key={key} className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="flex items-start gap-3 p-4">
+                          <span className="w-6 h-6 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                            {num}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium tracking-wider">{en}</span>
+                              <span className="text-xs text-gray-500">/ {label}{required && <span className="text-red-500 ml-1">*</span>}</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mb-3">{purpose}</p>
+                            <input
+                              type="number"
+                              value={footForm[key as keyof typeof footForm]}
+                              onChange={(e) => setFootForm({ ...footForm, [key]: e.target.value })}
+                              placeholder={placeholder}
+                              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900 text-sm"
+                            />
+                            {unit && <p className="text-xs text-gray-400 mt-1">単位: {unit}</p>}
+                          </div>
+                          {/* 計測方法の展開/閉じる */}
                           <button
                             type="button"
-                            onClick={() => setFootForm({ ...footForm, foot_type: 'left' })}
-                            className={`py-3 border rounded-lg transition ${
-                              footForm.foot_type === 'left' 
-                                ? 'border-gray-900 bg-gray-900 text-white' 
-                                : 'border-gray-300 hover:bg-gray-50'
-                            }`}
+                            onClick={() => setExpandedGuide(expandedGuide === num ? null : num)}
+                            className="text-xs text-blue-600 hover:underline flex-shrink-0 mt-1"
                           >
-                            左足
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFootForm({ ...footForm, foot_type: 'right' })}
-                            className={`py-3 border rounded-lg transition ${
-                              footForm.foot_type === 'right' 
-                                ? 'border-gray-900 bg-gray-900 text-white' 
-                                : 'border-gray-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            右足
+                            {expandedGuide === num ? '閉じる' : '計測方法'}
                           </button>
                         </div>
+                        {expandedGuide === num && (
+                          <div className="px-4 pb-4 pt-0 bg-blue-50 border-t border-blue-100">
+                            <p className="text-xs text-blue-800 leading-relaxed">{how}</p>
+                          </div>
+                        )}
                       </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-2">足長 (mm) *</label>
-                          <input
-                            type="number"
-                            value={footForm.length_mm}
-                            onChange={(e) => setFootForm({ ...footForm, length_mm: e.target.value })}
-                            placeholder="265"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-2">足幅 (mm) *</label>
-                          <input
-                            type="number"
-                            value={footForm.width_mm}
-                            onChange={(e) => setFootForm({ ...footForm, width_mm: e.target.value })}
-                            placeholder="102"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
-                          />
-                        </div>
-                      </div>
+                    ))}
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-2">アーチ高さ (mm)</label>
-                          <input
-                            type="number"
-                            value={footForm.arch_height_mm}
-                            onChange={(e) => setFootForm({ ...footForm, arch_height_mm: e.target.value })}
-                            placeholder="32"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
-                          />
+                    {/* ⑥ 指の形（トゥ形状） */}
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="flex items-start gap-3 p-4">
+                        <span className="w-6 h-6 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                          6
+                        </span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium tracking-wider">TOE SHAPE</span>
+                            <span className="text-xs text-gray-500">/ 指の形（トゥ形状）</span>
+                          </div>
+                          <p className="text-xs text-gray-500 mb-3">靴の木型との相性を判断するための形状</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { v: 'egyptian', l: 'エジプト型', desc: '親指が最長' },
+                              { v: 'greek', l: 'ギリシャ型', desc: '人差し指が最長' },
+                              { v: 'square', l: 'スクエア型', desc: '指先が横並び' },
+                            ].map(({ v, l, desc }) => (
+                              <button
+                                key={v}
+                                type="button"
+                                onClick={() => setFootForm({ ...footForm, toe_shape: footForm.toe_shape === v ? '' : v })}
+                                className={`py-2.5 px-2 border rounded-lg text-center transition ${
+                                  footForm.toe_shape === v ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 hover:bg-gray-50'
+                                }`}
+                              >
+                                <p className="text-xs font-medium">{l}</p>
+                                <p className={`text-[10px] ${footForm.toe_shape === v ? 'text-gray-300' : 'text-gray-400'}`}>{desc}</p>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-2">甲の高さ (mm)</label>
-                          <input
-                            type="number"
-                            value={footForm.instep_height_mm}
-                            onChange={(e) => setFootForm({ ...footForm, instep_height_mm: e.target.value })}
-                            placeholder="65"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
-                          />
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedGuide(expandedGuide === 6 ? null : 6)}
+                          className="text-xs text-blue-600 hover:underline flex-shrink-0 mt-1"
+                        >
+                          {expandedGuide === 6 ? '閉じる' : '計測方法'}
+                        </button>
                       </div>
+                      {expandedGuide === 6 && (
+                        <div className="px-4 pb-4 pt-0 bg-blue-50 border-t border-blue-100">
+                          <p className="text-xs text-blue-800 leading-relaxed">
+                            足型を紙にしっかりなぞり、指の並びを確認する。親指が最も長い → エジプト型、人差し指が長い → ギリシャ型、指先が横並び → スクエア型。
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="p-6 border-t border-gray-200 flex gap-3">
+                  <div className="p-6 border-t border-gray-200 flex gap-3 flex-shrink-0">
                     <button
                       onClick={() => setShowFootMeasureModal(false)}
                       className="flex-1 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                     >
-                      キャンセル
+                      CANCEL
                     </button>
                     <button
                       onClick={() => {
                         handleAddFootMeasurement();
                         setShowFootMeasureModal(false);
                       }}
-                      disabled={footLoading || !footForm.length_mm || !footForm.width_mm}
+                      disabled={footLoading || !footForm.length_mm}
                       className="flex-1 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition disabled:bg-gray-400"
                     >
-                      {footLoading ? '保存中...' : '保存'}
+                      {footLoading ? 'SAVING...' : 'SAVE'}
                     </button>
                   </div>
                 </div>

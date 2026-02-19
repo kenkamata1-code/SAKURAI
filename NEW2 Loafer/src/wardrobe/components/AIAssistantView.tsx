@@ -333,35 +333,51 @@ export default function AIAssistantView({
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* 戻るボタン */}
-      {onBack && (
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          マイアイテムに戻る
-        </button>
-      )}
-
-      {/* ヘッダー */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h2 className="text-2xl tracking-wider font-light mb-2 flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-blue-500" />
+      {/* ヘッダーバー：戻るボタン + タイトル + リフレッシュ + クレジット */}
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          {/* 戻るボタン */}
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              BACK
+            </button>
+          )}
+          <h2 className="text-xl tracking-wider font-light flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-blue-500" />
             AI ASSISTANT
           </h2>
-          <p className="text-gray-600 text-sm">
-            画像をアップロードすると、AIが自動で商品を認識して登録します
-          </p>
         </div>
-        
-        {/* クレジット表示 */}
-        <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg">
-          <Zap className={`w-4 h-4 ${canUseAI ? 'text-yellow-500' : 'text-gray-400'}`} />
-          <span className="text-sm">
-            本日残り <span className={`font-bold ${canUseAI ? 'text-gray-900' : 'text-red-500'}`}>{remainingCredits}</span> / {DAILY_LIMIT} 回
-          </span>
+
+        <div className="flex items-center gap-2">
+          {/* チャットリフレッシュボタン */}
+          <button
+            onClick={() => {
+              if (aiMessages.length === 0 || confirm('チャット履歴をリセットしますか？')) {
+                setAiMessages([]);
+              }
+            }}
+            disabled={aiLoading}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition disabled:opacity-40"
+            title="チャットをリセット"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            RESET
+          </button>
+
+          {/* クレジット表示 */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg">
+            <Zap className={`w-4 h-4 ${canUseAI ? 'text-yellow-500' : 'text-gray-400'}`} />
+            <span className="text-sm">
+              残り <span className={`font-bold ${canUseAI ? 'text-gray-900' : 'text-red-500'}`}>{remainingCredits}</span> / {DAILY_LIMIT}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -589,11 +605,12 @@ export default function AIAssistantView({
               el.style.height = Math.min(el.scrollHeight, 160) + 'px';
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && canUseAI && !aiLoading) {
+              // IME変換中（日本語の確定エンターなど）は送信しない
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && canUseAI && !aiLoading) {
                 e.preventDefault();
                 handleSendMessage();
               }
-              // Shift+Enter → デフォルト動作（改行）を許可
+              // Shift+Enter → 改行 / IME確定中 → 改行
             }}
           />
           <button

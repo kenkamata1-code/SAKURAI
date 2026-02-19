@@ -99,10 +99,13 @@ export interface FootMeasurement {
   id: string;
   user_id: string;
   foot_type: 'left' | 'right';
-  length_mm: number;
-  width_mm: number;
-  arch_height_mm: number | null;
-  instep_height_mm: number | null;
+  length_mm: number;           // ①足長
+  girth_mm: number | null;     // ②足囲（周囲長）
+  width_mm: number;            // ③足幅
+  instep_height_mm: number | null; // ④甲の高さ（インステップ）
+  heel_width_mm: number | null;    // ⑤かかと幅
+  toe_shape: string | null;        // ⑥指の形（egyptian / greek / square）
+  arch_height_mm: number | null;   // 旧フィールド（後方互換）
   scan_image_url: string | null;
   measurement_date: string;
   is_active: boolean;
