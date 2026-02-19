@@ -22,7 +22,7 @@ interface AIAssistantViewProps {
 }
 
 // 1日の最大使用回数
-const DAILY_LIMIT = 5;
+const DAILY_LIMIT = 50;
 
 // サンプル質問
 const SAMPLE_QUESTIONS = [
