@@ -88,6 +88,8 @@ export default function AIAssistantView({
   const [registeringBulk, setRegisteringBulk] = useState(false);
   const [pastedFile, setPastedFile] = useState<File | null>(null);
   const [pastedImagePreview, setPastedImagePreview] = useState<string | null>(null);
+  // IME変換中フラグ（日本語変換のEnterでメッセージを送信しないため）
+  const [imeComposing, setImeComposing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -728,6 +730,8 @@ export default function AIAssistantView({
             className="w-full pl-10 pr-14 py-4 border border-gray-300 rounded-2xl focus:outline-none focus:border-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden leading-relaxed"
             style={{ minHeight: '52px', maxHeight: '160px' }}
             onPaste={handlePaste}
+            onCompositionStart={() => setImeComposing(true)}
+            onCompositionEnd={() => setImeComposing(false)}
             onInput={(e) => {
               const el = e.currentTarget;
               el.style.height = 'auto';
@@ -735,7 +739,9 @@ export default function AIAssistantView({
             }}
             onKeyDown={(e) => {
               // IME変換中（日本語の確定エンターなど）は送信しない
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && canUseAI && !aiLoading) {
+              // nativeEvent.isComposing はブラウザによって動作が異なるため、
+              // compositionStart/End で管理するステートを優先して使用する
+              if (e.key === 'Enter' && !e.shiftKey && !imeComposing && !e.nativeEvent.isComposing && canUseAI && !aiLoading) {
                 e.preventDefault();
                 handleSendMessage();
               }

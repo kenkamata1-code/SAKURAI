@@ -232,6 +232,7 @@ export interface ScrapedProductData {
   // 単一商品のフィールド（後方互換）
   name?: string;
   brand?: string;
+  product_number?: string;  // 品番・商品番号
   size?: string;
   color?: string;
   price?: string;
@@ -243,6 +244,9 @@ export interface ScrapedProductData {
   image_url?: string;
   image_url_2?: string;
   image_url_3?: string;
+  image_urls?: string[];     // scrape-urlから返される画像URL配列
+  available_colors?: { name: string; code?: string; image_url?: string }[];
+  available_sizes?: string[];
   size_details?: SizeDetails;
 }
 
