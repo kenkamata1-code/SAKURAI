@@ -589,6 +589,7 @@ export default function WardrobePage() {
             setAiInput={setAiInput}
             aiLoading={aiLoading}
             setAiLoading={setAiLoading}
+            onBack={() => setViewMode('items')}
           />
         )}
 

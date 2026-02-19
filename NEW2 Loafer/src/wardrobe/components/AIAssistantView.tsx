@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, Sparkles, ShoppingBag, CloudSun, Ruler, Palette, Users, Zap, Camera, Image as ImageIcon, X, Check, Loader2 } from 'lucide-react';
+import { Bot, Send, Sparkles, ShoppingBag, CloudSun, Ruler, Palette, Users, Zap, Camera, Image as ImageIcon, X, Check, Loader2, ArrowLeft } from 'lucide-react';
 import { apiClient } from '../lib/api-client';
 import { useWardrobeStore } from '../lib/store';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,6 +19,7 @@ interface AIAssistantViewProps {
   setAiInput: React.Dispatch<React.SetStateAction<string>>;
   aiLoading: boolean;
   setAiLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  onBack?: () => void;
 }
 
 // 1日の最大使用回数
@@ -72,6 +73,7 @@ export default function AIAssistantView({
   setAiInput,
   aiLoading,
   setAiLoading,
+  onBack,
 }: AIAssistantViewProps) {
   const { user } = useAuth();
   const { addItem } = useWardrobeStore();
@@ -297,6 +299,17 @@ export default function AIAssistantView({
 
   return (
     <div className="max-w-4xl mx-auto">
+      {/* 戻るボタン */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          マイアイテムに戻る
+        </button>
+      )}
+
       {/* ヘッダー */}
       <div className="mb-6 flex items-start justify-between">
         <div>
