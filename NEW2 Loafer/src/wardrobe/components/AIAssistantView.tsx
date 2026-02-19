@@ -177,17 +177,22 @@ export default function AIAssistantView({
 
       if (productData) {
         // ======== 購入履歴スクリーンショット（複数商品）の場合 ========
-        if (productData.type === 'order_history' && Array.isArray(productData.items) && productData.items.length > 0) {
-          const items: Partial<WardrobeItem>[] = productData.items.map((item: Record<string, unknown>) => ({
-            name: (item.name as string) || '不明な商品',
-            brand: (item.brand as string) || null,
-            color: (item.color as string) || null,
-            size: (item.size as string) || null,
-            category: (item.category as string) || null,
-            purchase_price: item.purchase_price ? Number(item.purchase_price) : null,
-            currency: (item.currency as string) || 'JPY',
-            purchase_date: (item.purchase_date as string) || null,
-            notes: (item.notes as string) || null,
+        // type が order_history または multiple_products で、items または products 配列がある場合
+        const multiItems = productData.items || productData.products || [];
+        if (
+          (productData.type === 'order_history' || productData.type === 'multiple_products') &&
+          Array.isArray(multiItems) && multiItems.length > 0
+        ) {
+          const items: Partial<WardrobeItem>[] = multiItems.map((item) => ({
+            name: item.name || '不明な商品',
+            brand: item.brand || null,
+            color: item.color || null,
+            size: item.size || null,
+            category: item.category || null,
+            purchase_price: item.purchase_price ? Number(item.purchase_price) : (item.price ? parseInt(item.price) : null),
+            currency: item.currency || 'JPY',
+            purchase_date: item.purchase_date || null,
+            notes: item.notes || item.description || null,
           }));
 
           // 全アイテムを選択状態にして初期化

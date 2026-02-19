@@ -1676,16 +1676,30 @@ ${imageUrls.slice(0, 15).join('\n')}
         const responseText = parts.map(p => p.text || '').join('').trim() || '{}';
         console.log("Gemini response text:", responseText.substring(0, 500));
         
-        // JSONを抽出（複数パターンに対応）
-        let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        // マークダウン形式で返ってきた場合、{ } で囲まれたJSONブロックを抽出
-        if (!jsonStr.startsWith('{')) {
-          const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            jsonStr = jsonMatch[0];
-          } else {
-            throw new Error('JSONが見つかりませんでした。Geminiの応答: ' + jsonStr.substring(0, 200));
+        // ブラケットを正確にカウントして最初の完全なJSONオブジェクトを抽出する関数
+        const extractFirstJson = (text) => {
+          const start = text.indexOf('{');
+          if (start === -1) return null;
+          let depth = 0;
+          let inString = false;
+          let escape = false;
+          for (let i = start; i < text.length; i++) {
+            const ch = text[i];
+            if (escape) { escape = false; continue; }
+            if (ch === '\\' && inString) { escape = true; continue; }
+            if (ch === '"') { inString = !inString; continue; }
+            if (inString) continue;
+            if (ch === '{') depth++;
+            if (ch === '}') { depth--; if (depth === 0) return text.substring(start, i + 1); }
           }
+          return null;
+        };
+
+        // まずmarkdownコードブロックを除去してからJSONを抽出
+        const cleanedText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const jsonStr = extractFirstJson(cleanedText);
+        if (!jsonStr) {
+          throw new Error('JSONが見つかりませんでした。Geminiの応答: ' + cleanedText.substring(0, 200));
         }
         console.log("Parsed JSON string:", jsonStr.substring(0, 300));
         const productData = JSON.parse(jsonStr);
@@ -1793,8 +1807,23 @@ JSONのみを返してください。読み取れない項目は空文字にし�
         const geminiData = await geminiRes.json();
         const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
         
-        let jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const tagData = JSON.parse(jsonStr);
+        const extractFirstJsonForTag = (text) => {
+          const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          const start = cleanText.indexOf('{');
+          if (start === -1) return cleanText;
+          let depth = 0, inString = false, escape = false;
+          for (let i = start; i < cleanText.length; i++) {
+            const ch = cleanText[i];
+            if (escape) { escape = false; continue; }
+            if (ch === '\\' && inString) { escape = true; continue; }
+            if (ch === '"') { inString = !inString; continue; }
+            if (inString) continue;
+            if (ch === '{') depth++;
+            if (ch === '}') { depth--; if (depth === 0) return cleanText.substring(start, i + 1); }
+          }
+          return cleanText;
+        };
+        const tagData = JSON.parse(extractFirstJsonForTag(responseText));
         
         return response(200, tagData);
         
@@ -1922,17 +1951,28 @@ JSONのみを返してください。読み取れない項目は空文字にし�
 
         if (!responseText) throw new Error('Gemini returned empty response');
 
-        // JSON抽出（マークダウンコードブロックや前後テキストを除去）
-        let jsonStr = responseText;
-        const jsonMatch = jsonStr.match(/```json\s*([\s\S]*?)```/) || jsonStr.match(/```\s*([\s\S]*?)```/);
-        if (jsonMatch) {
-          jsonStr = jsonMatch[1];
-        } else {
-          // {...} ブロックを直接抽出
-          const objMatch = jsonStr.match(/\{[\s\S]*\}/);
-          if (objMatch) jsonStr = objMatch[0];
-        }
-        jsonStr = jsonStr.trim();
+        // ブラケットを正確にカウントして最初の完全なJSONオブジェクトを抽出する関数
+        const extractFirstJsonForImage = (text) => {
+          const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          const start = cleanText.indexOf('{');
+          if (start === -1) return null;
+          let depth = 0;
+          let inString = false;
+          let escape = false;
+          for (let i = start; i < cleanText.length; i++) {
+            const ch = cleanText[i];
+            if (escape) { escape = false; continue; }
+            if (ch === '\\' && inString) { escape = true; continue; }
+            if (ch === '"') { inString = !inString; continue; }
+            if (inString) continue;
+            if (ch === '{') depth++;
+            if (ch === '}') { depth--; if (depth === 0) return cleanText.substring(start, i + 1); }
+          }
+          return null;
+        };
+
+        const jsonStr = extractFirstJsonForImage(responseText);
+        if (!jsonStr) throw new Error('JSONが見つかりませんでした: ' + responseText.substring(0, 200));
 
         const productData = JSON.parse(jsonStr);
         

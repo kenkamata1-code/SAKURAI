@@ -206,14 +206,40 @@ export interface ApiResponse<T> {
 }
 
 // スクレイピング結果（Gemini API用）
+// analyze-imageやscrape-urlで返ってくる個別商品情報
+export interface ScrapedProductItem {
+  name?: string;
+  brand?: string;
+  category?: string;
+  color?: string;
+  size?: string;
+  price?: string;
+  purchase_price?: number;
+  currency?: string;
+  purchase_date?: string;
+  description?: string;
+  notes?: string;
+  image_url?: string;
+}
+
 export interface ScrapedProductData {
+  // レスポンスタイプ: 単一商品 / 複数商品 / 購入履歴
+  type?: 'single_product' | 'multiple_products' | 'order_history';
+  // 複数商品の場合（analyze-image: 購入履歴スクリーンショット等）
+  items?: ScrapedProductItem[];
+  // 複数商品の場合（analyze-image: products配列形式）
+  products?: ScrapedProductItem[];
+  // 単一商品のフィールド（後方互換）
   name?: string;
   brand?: string;
   size?: string;
   color?: string;
   price?: string;
+  purchase_price?: number;
   currency?: string;
   description?: string;
+  notes?: string;
+  category?: string;
   image_url?: string;
   image_url_2?: string;
   image_url_3?: string;
