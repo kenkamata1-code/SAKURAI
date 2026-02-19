@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Camera } from 'lucide-react';
 import { apiClient } from '../lib/api-client';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -29,6 +29,7 @@ export default function ImageUpload({
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || currentImageUrl || value || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -100,6 +101,11 @@ export default function ImageUpload({
     fileInputRef.current?.click();
   };
 
+  const handleCameraClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    cameraInputRef.current?.click();
+  };
+
   const handleRemove = () => {
     setPreviewUrl(null);
     onChange?.('');
@@ -139,31 +145,61 @@ export default function ImageUpload({
         </div>
       ) : (
         <div
-          onClick={handleClick}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={`
-            w-full h-64 border-2 border-dashed flex flex-col items-center justify-center cursor-pointer
+            w-full h-64 border-2 border-dashed flex flex-col items-center justify-center
             transition-colors
-            ${isDragging ? 'border-gray-900 bg-gray-50' : 'border-gray-300 hover:border-gray-400'}
+            ${isDragging ? 'border-gray-900 bg-gray-50' : 'border-gray-300'}
             ${uploading ? 'opacity-50 pointer-events-none' : ''}
           `}
         >
-          <Upload className="w-12 h-12 text-gray-400 mb-4" strokeWidth={1.5} />
-          <p className="text-sm text-gray-600 mb-1">
-            {uploading ? 'アップロード中... / Uploading...' : 'クリックまたはドラッグ&ドロップ'}
-          </p>
-          <p className="text-xs text-gray-500">
-            Click or drag & drop to upload
-          </p>
+          {uploading ? (
+            <p className="text-sm text-gray-600">アップロード中... / Uploading...</p>
+          ) : (
+            <>
+              {/* ファイル選択ボタン */}
+              <button
+                type="button"
+                onClick={handleClick}
+                className="flex flex-col items-center gap-2 mb-4 text-gray-500 hover:text-gray-800 transition"
+              >
+                <Upload className="w-8 h-8" strokeWidth={1.5} />
+                <span className="text-xs">クリックまたはドラッグ&ドロップ</span>
+              </button>
+
+              {/* 区切り */}
+              <p className="text-xs text-gray-400 mb-4">または</p>
+
+              {/* カメラボタン（モバイルで直接カメラ起動） */}
+              <button
+                type="button"
+                onClick={handleCameraClick}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white transition text-sm"
+              >
+                <Camera className="w-4 h-4" />
+                カメラで撮影
+              </button>
+            </>
+          )}
         </div>
       )}
 
+      {/* 通常のファイル選択用 */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+      {/* カメラ直接起動用（capture属性） */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
         onChange={handleFileSelect}
         className="hidden"
       />
