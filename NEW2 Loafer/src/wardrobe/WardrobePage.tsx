@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Package, Image as ImageIcon, BarChart3, Bot, Footprints, X, Trash2, Ruler } from 'lucide-react';
+import { Plus, Package, Image as ImageIcon, BarChart3, Bot, Footprints, X, Trash2, Ruler, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWardrobeStore, useStylingStore, useUIStore, useMeasurementStore } from './lib/store';
 import { CATEGORIES, CATEGORY_LABELS } from './types';
@@ -48,6 +48,18 @@ export default function WardrobePage() {
 
   const [editingItem, setEditingItem] = useState<WardrobeItem | null>(null);
   const [categoryRange, setCategoryRange] = useState<TimeRange>('1M');
+
+  // AIアシスタントの残りクレジット数（localStorageから取得）
+  const DAILY_LIMIT = 50;
+  const [aiRemainingCredits, setAiRemainingCredits] = useState<number>(DAILY_LIMIT);
+  useEffect(() => {
+    const today = new Date().toDateString();
+    const stored = localStorage.getItem('ai_assistant_usage');
+    if (stored) {
+      const { date, count } = JSON.parse(stored);
+      setAiRemainingCredits(date === today ? DAILY_LIMIT - count : DAILY_LIMIT);
+    }
+  }, []);
   const [brandRange, setBrandRange] = useState<TimeRange>('1M');
   
   // スタイリング用
@@ -348,7 +360,7 @@ export default function WardrobePage() {
         {/* アイテムビュー */}
         {viewMode === 'items' && (
           <div className="mb-16">
-            <div className="flex gap-4 mb-8">
+            <div className="flex items-center justify-between gap-4 mb-8">
               <button
                 onClick={() => {
                   setEditingItem(null);
@@ -359,6 +371,11 @@ export default function WardrobePage() {
                 <Plus className="w-5 h-5" />
                 アイテムを追加
               </button>
+              {/* AIクレジット残数 */}
+              <div className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">
+                <Zap className={`w-4 h-4 ${aiRemainingCredits > 0 ? 'text-yellow-500' : 'text-gray-400'}`} />
+                <span>AI残り <span className={`font-bold ${aiRemainingCredits > 0 ? 'text-gray-900' : 'text-red-500'}`}>{aiRemainingCredits}</span> / {DAILY_LIMIT} 回</span>
+              </div>
             </div>
 
             <h2 className="text-2xl tracking-wider font-light mb-6">マイアイテム</h2>

@@ -87,6 +87,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
   const [imageUrl3, setImageUrl3] = useState<string | null>(editingItem?.image_url_3 || null);
   const [sizeDetails, setSizeDetails] = useState<SizeDetails | null>(editingItem?.size_details || null);
   const [pendingImage, setPendingImage] = useState<{ file: File; slot: number } | null>(null);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
 
   // editingItem または isOpen が変わったときにフォームを初期化
   useEffect(() => {
@@ -157,6 +158,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
   const handleFetchFromUrl = async () => {
     if (!formData.source_url) return;
     setLoading(true);
+    setScrapeError(null);
     
     try {
       const result = await apiClient.scrapeProductUrl(formData.source_url);
@@ -169,26 +171,31 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
         const hasSizes = data.available_sizes && data.available_sizes.length > 0;
         
         if (hasColors || hasSizes) {
-          // デフォルトで最初のカラーを選択
           if (hasColors && data.available_colors) {
             setSelectedColor(data.available_colors[0]);
           }
-          // デフォルトで最初のサイズを選択
           if (hasSizes && data.available_sizes) {
             setSelectedSize(data.available_sizes[0]);
           }
           setUrlStep('select');
         } else {
-          // 選択肢がない場合は直接フォームへ
           applyScrapedData(data, null, '');
           setUrlStep('form');
         }
       } else {
-        alert('URLから商品情報を取得できませんでした');
+        setScrapeError('URLから商品情報を取得できませんでした。商品の個別ページのURLを入力してください。');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error fetching product:', error);
-      alert('URLから商品情報を取得できませんでした');
+      const msg = error instanceof Error ? error.message : '';
+      // ログイン必須ページ・スクレイピング不可サイトの場合
+      if (msg.includes('ログインが必要') || msg.includes('member') || msg.includes('orderhistory')) {
+        setScrapeError('このページはログインが必要なため取得できません。\n商品の個別ページのURLをご利用ください。\n例: https://zozo.jp/shop/〇〇/goods/12345678/');
+      } else if (msg.includes('空レスポンス') || msg.includes('個別ページ')) {
+        setScrapeError('このサイトからは商品情報を取得できませんでした。\n商品の個別ページのURLを入力してください。');
+      } else {
+        setScrapeError('URLから商品情報を取得できませんでした。\nURLを確認してもう一度お試しください。');
+      }
     } finally {
       setLoading(false);
     }
@@ -390,6 +397,15 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                     {loading ? '取得中...' : '取得'}
                   </button>
                 </div>
+                {/* スクレイピングエラー表示 */}
+                {scrapeError && (
+                  <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded">
+                    <p className="text-sm text-red-700 font-medium mb-1">⚠️ 商品情報を取得できませんでした</p>
+                    {scrapeError.split('\n').map((line, i) => (
+                      <p key={i} className="text-sm text-red-600">{line}</p>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
