@@ -40,6 +40,19 @@ const getTodayDate = () => {
   return today.toISOString().split('T')[0];
 };
 
+// 日付をYYYY-MM-DD形式に正規化（ISO形式などにも対応）
+const normalizeDate = (date: string | null | undefined): string => {
+  if (!date) return getTodayDate();
+  // すでにYYYY-MM-DD形式なら変換不要
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  // ISO形式（2026-02-19T00:00:00.000Z）などを変換
+  try {
+    return new Date(date).toISOString().split('T')[0];
+  } catch {
+    return getTodayDate();
+  }
+};
+
 export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: AddItemModalProps) {
   const { user } = useAuth();
   const [addMethod, setAddMethod] = useState<'url' | 'manual' | 'tag'>('manual');
@@ -61,7 +74,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
     measurements: editingItem?.measurements || '',
     color: editingItem?.color || '',
     category: editingItem?.category || 'シューズ',
-    purchase_date: editingItem?.purchase_date || getTodayDate(),
+    purchase_date: normalizeDate(editingItem?.purchase_date),
     purchase_price: editingItem?.purchase_price?.toString() || '',
     currency: editingItem?.currency || 'JPY',
     purchase_location: editingItem?.purchase_location || '',
@@ -87,7 +100,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
         measurements: editingItem?.measurements || '',
         color: editingItem?.color || '',
         category: editingItem?.category || 'シューズ',
-        purchase_date: editingItem?.purchase_date || getTodayDate(),
+        purchase_date: normalizeDate(editingItem?.purchase_date),
         purchase_price: editingItem?.purchase_price?.toString() || '',
         currency: editingItem?.currency || 'JPY',
         purchase_location: editingItem?.purchase_location || '',
