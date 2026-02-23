@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, ChevronLeft, Check } from 'lucide-react';
-import { apiClient } from '../../lib/api-client';
+import { api } from '../../lib/api-client';
 
 // 体型タイプ
 const BODY_TYPES = [
@@ -70,7 +70,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const handleComplete = async () => {
     setSaving(true);
     try {
-      await apiClient.profile.update({
+      await api.profile.update({
         height_cm: form.height_cm ?? undefined,
         weight_kg: form.weight_kg ?? undefined,
         age: form.age ?? undefined,
