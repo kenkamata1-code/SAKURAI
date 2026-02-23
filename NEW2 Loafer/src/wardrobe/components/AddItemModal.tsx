@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Link as LinkIcon, Upload, Tag, Calendar, DollarSign, Ruler, MapPin, FileText, Sparkles, Image as ImageIcon, Check } from 'lucide-react';
 import ImageUpload from './ImageUpload';
 import { CATEGORIES, CATEGORY_LABELS, CURRENCIES } from '../types';
-import type { WardrobeItem, WardrobeItemFormData, SizeDetails } from '../types';
+import type { WardrobeItem, WardrobeItemFormData, SizeDetails, WearScene } from '../types';
 import { removeBgFromImage, blobToFile } from '../utils/backgroundRemoval';
 import { apiClient } from '../lib/api-client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,16 +15,28 @@ interface ScrapedColor {
 }
 
 interface ScrapedProductData {
+  // 単一商品
   name?: string;
   brand?: string;
+  product_number?: string;
   category?: string;
   description?: string;
   price?: string;
   currency?: string;
+  color?: string;
+  size?: string;
   available_colors?: ScrapedColor[];
   available_sizes?: string[];
   default_image_url?: string;
+  image_url?: string;
+  image_url_2?: string;
+  image_url_3?: string;
   image_urls?: string[]; // 複数画像URL（最大3枚）
+  // 複数商品・注文履歴
+  type?: 'single_product' | 'multiple_products' | 'order_history';
+  data?: ScrapedProductData[];   // 複数商品リスト
+  products?: ScrapedProductData[];
+  items?: ScrapedProductData[];
 }
 
 interface AddItemModalProps {
@@ -85,6 +97,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
     purchase_location: editingItem?.purchase_location || '',
     source_url: editingItem?.source_url || '',
     notes: editingItem?.notes || '',
+    wear_scene: (editingItem?.wear_scene as WearScene) || '',
   });
   
   const [imageUrl, setImageUrl] = useState<string | null>(editingItem?.image_url || null);
@@ -112,6 +125,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
         purchase_location: editingItem?.purchase_location || '',
         source_url: editingItem?.source_url || '',
         notes: editingItem?.notes || '',
+        wear_scene: (editingItem?.wear_scene as WearScene) || '',
       });
       setImageUrl(editingItem?.image_url || null);
       setImageUrl2(editingItem?.image_url_2 || null);
@@ -149,6 +163,7 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
         image_url_2: imageUrl2,
         image_url_3: imageUrl3,
         notes: formData.notes || null,
+        wear_scene: (formData.wear_scene as WearScene) || null,
       });
       
       onClose();
@@ -167,8 +182,8 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
     
     try {
       const result = await apiClient.scrapeProductUrl(formData.source_url);
-      if (result.data?.data) {
-        const data = result.data.data as ScrapedProductData;
+      if (result.data) {
+        const data = result.data as ScrapedProductData;
         setScrapedData(data);
         
         // カラー・サイズの選択肢があるか、シューズカテゴリーなら選択ステップへ
@@ -887,6 +902,38 @@ export default function AddItemModal({ isOpen, onClose, onSave, editingItem }: A
                 className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:border-gray-900 min-h-[100px]"
                 placeholder="このアイテムについての詳細情報..."
               />
+            </div>
+
+            {/* 着用シーン（必須） */}
+            <div>
+              <label className="text-sm tracking-wider mb-3 block">
+                WEAR SCENE <span className="text-gray-400 font-normal text-xs">/ 着用シーン</span>
+                {' '}<span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {(
+                  [
+                    { value: 'casual', label: 'CASUAL', labelJa: 'カジュアル', emoji: '👟' },
+                    { value: 'formal', label: 'FORMAL', labelJa: 'フォーマル', emoji: '👔' },
+                    { value: 'both',   label: 'BOTH',   labelJa: '両方',       emoji: '✨' },
+                  ] as { value: WearScene; label: string; labelJa: string; emoji: string }[]
+                ).map(({ value, label, labelJa, emoji }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, wear_scene: value })}
+                    className={`py-4 border-2 flex flex-col items-center gap-1 transition ${
+                      formData.wear_scene === value
+                        ? 'border-gray-900 bg-gray-900 text-white'
+                        : 'border-gray-200 hover:border-gray-400 text-gray-700'
+                    }`}
+                  >
+                    <span className="text-xl">{emoji}</span>
+                    <span className="text-xs tracking-widest font-medium">{label}</span>
+                    <span className="text-[10px] opacity-70">{labelJa}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <button

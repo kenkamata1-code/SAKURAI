@@ -122,7 +122,7 @@ export default function ProductDetail() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="pt-32 pb-20 px-6">
+      <div className="pt-20 sm:pt-32 pb-20 px-4 sm:px-6">
         <div className="max-w-[1400px] mx-auto">
           <button
             onClick={() => navigate('/shop')}
@@ -245,10 +245,11 @@ export default function ProductDetail() {
                       </div>
                     </div>
 
+                    {/* PC: インライン / モバイル: 非表示（下部固定ボタンを使用） */}
                     <button
                       onClick={addToCart}
                       disabled={addingToCart}
-                      className="w-full py-4 bg-gray-900 text-white text-sm tracking-[0.2em] hover:bg-gray-800 transition flex items-center justify-center gap-2 disabled:opacity-50 uppercase"
+                      className="hidden sm:flex w-full py-4 bg-gray-900 text-white text-sm tracking-[0.2em] hover:bg-gray-800 transition items-center justify-center gap-2 disabled:opacity-50 uppercase"
                     >
                       <ShoppingCart className="w-4 h-4" strokeWidth={1.5} />
                       {addingToCart ? 'Adding to cart...' : 'Add to cart'}
@@ -274,6 +275,20 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* モバイル専用: 画面下部固定の「カートに追加」ボタン */}
+      {selectedVariant && selectedVariant.stock > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 sm:hidden z-40 bg-white border-t border-gray-200 p-4">
+          <button
+            onClick={addToCart}
+            disabled={addingToCart}
+            className="w-full py-4 bg-gray-900 text-white text-sm tracking-[0.2em] hover:bg-gray-800 active:bg-gray-700 transition flex items-center justify-center gap-2 disabled:opacity-50 uppercase"
+          >
+            <ShoppingCart className="w-4 h-4" strokeWidth={1.5} />
+            {addingToCart ? 'カートに追加中...' : 'カートに追加'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

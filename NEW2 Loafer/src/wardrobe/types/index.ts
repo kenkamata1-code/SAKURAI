@@ -23,6 +23,11 @@ export interface Profile {
   display_initial?: string | null;
   height_cm?: number | null;
   weight_kg?: number | null;
+  age?: number | null;
+  body_type?: 'straight' | 'wave' | 'natural' | null;
+  body_features?: string[] | null;
+  body_features_note?: string | null;
+  onboarding_completed?: boolean;
   is_wardrobe_public?: boolean;
   is_styling_public?: boolean;
   created_at: string;
@@ -59,9 +64,13 @@ export interface WardrobeItem {
   sold_price: number | null;
   sold_currency: string | null;
   sold_location: string | null;
+  wear_scene: WearScene | null;  // 着用シーン
   created_at: string;
   updated_at?: string;
 }
+
+// 着用シーン
+export type WearScene = 'casual' | 'formal' | 'both';
 
 export interface SizeDetails {
   [key: string]: string | number | undefined;
@@ -184,6 +193,7 @@ export interface WardrobeItemFormData {
   purchase_location: string;
   source_url: string;
   notes: string;
+  wear_scene: WearScene | '';  // 着用シーン
 }
 
 export interface StylingFormData {

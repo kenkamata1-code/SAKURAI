@@ -329,39 +329,38 @@ export default function WardrobePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-8 pb-20 px-6">
+    <div className="min-h-screen bg-white pt-4 sm:pt-8 pb-24 sm:pb-20 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
         {/* ヘッダー */}
-        <div className="mb-8">
-          <h1 className="text-4xl tracking-wider font-light mb-4">WARDROBE</h1>
-          <p className="text-gray-600 tracking-wide">ワードローブ管理 / Wardrobe Management</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl tracking-wider font-light mb-2 sm:mb-4">WARDROBE</h1>
+          <p className="text-sm text-gray-600 tracking-wide">ワードローブ管理</p>
         </div>
 
-        {/* タブナビゲーション */}
-        <div className="mb-8 border-b border-gray-200">
-          <div className="flex gap-6 overflow-x-auto">
+        {/* タブナビゲーション（モバイル: アイコン中心、PC: フル表示） */}
+        <div className="mb-6 sm:mb-8 border-b border-gray-200">
+          <div className="flex gap-1 sm:gap-6 overflow-x-auto scrollbar-hide">
             {[
               { key: 'items', icon: Package, label: 'ITEMS', labelJa: 'アイテム' },
               { key: 'styling', icon: ImageIcon, label: 'STYLING', labelJa: 'スタイリング' },
               { key: 'dashboard', icon: BarChart3, label: 'DASHBOARD', labelJa: 'ダッシュボード' },
-              { key: 'ai-assistant', icon: Bot, label: 'AI ASSISTANT', labelJa: 'AIアシスタント' },
-              { key: 'foot-scan', icon: Footprints, label: 'FOOT SCAN', labelJa: '足の測定' },
+              { key: 'ai-assistant', icon: Bot, label: 'AI', labelJa: 'AIアシスタント' },
+              { key: 'foot-scan', icon: Footprints, label: 'FOOT', labelJa: '足の測定' },
             ].map(({ key, icon: Icon, label, labelJa }) => (
               <button
                 key={key}
                 onClick={() => setViewMode(key as typeof viewMode)}
-                className={`pb-4 border-b-2 transition whitespace-nowrap ${
+                className={`pb-3 sm:pb-4 border-b-2 transition flex-shrink-0 ${
                   viewMode === key
                     ? 'border-gray-900 text-gray-900 font-medium'
                     : 'border-transparent text-gray-500 hover:text-gray-900'
                 }`}
               >
-                <span className="flex flex-col items-center gap-0.5 text-xs tracking-wider">
-                  <span className="flex items-center gap-1.5">
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </span>
-                  <span className="text-[10px] opacity-60">{labelJa}</span>
+                {/* モバイル: アイコン+短縮ラベル / PC: フルラベル */}
+                <span className="flex flex-col items-center gap-0.5 px-3 sm:px-0 text-xs tracking-wider">
+                  <Icon className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden sm:block">{label}</span>
+                  <span className="block sm:hidden text-[10px]">{labelJa}</span>
                 </span>
               </button>
             ))}
@@ -371,7 +370,8 @@ export default function WardrobePage() {
         {/* アイテムビュー */}
         {viewMode === 'items' && (
           <div className="mb-16">
-            <div className="flex items-center justify-between gap-4 mb-8">
+            {/* PC: 上部ボタン / モバイル: 非表示（下部FABを使用） */}
+            <div className="hidden sm:flex items-center justify-between gap-4 mb-8">
               <button
                 onClick={() => {
                   setEditingItem(null);
@@ -387,6 +387,11 @@ export default function WardrobePage() {
                 <Zap className={`w-4 h-4 ${aiRemainingCredits > 0 ? 'text-yellow-500' : 'text-gray-400'}`} />
                 <span>AI残り <span className={`font-bold ${aiRemainingCredits > 0 ? 'text-gray-900' : 'text-red-500'}`}>{aiRemainingCredits}</span> / {DAILY_LIMIT} 回</span>
               </div>
+            </div>
+            {/* モバイル: AIクレジット表示のみ */}
+            <div className="flex sm:hidden items-center gap-2 mb-4 px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-xs text-gray-600">
+              <Zap className={`w-3.5 h-3.5 ${aiRemainingCredits > 0 ? 'text-yellow-500' : 'text-gray-400'}`} />
+              <span>AI残り <span className={`font-bold ${aiRemainingCredits > 0 ? 'text-gray-900' : 'text-red-500'}`}>{aiRemainingCredits}</span> / {DAILY_LIMIT} 回</span>
             </div>
 
             <h2 className="text-2xl tracking-wider font-light mb-6">MY ITEMS <span className="text-lg text-gray-400">/ マイアイテム</span></h2>
@@ -440,17 +445,18 @@ export default function WardrobePage() {
         {/* スタイリングビュー */}
         {viewMode === 'styling' && (
           <div>
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-6 sm:mb-8">
               <div>
-                <h2 className="text-2xl tracking-wider font-light">スタイリング / Styling</h2>
-                <p className="text-sm text-gray-500 mt-1">{photos.length} photos</p>
+                <h2 className="text-xl sm:text-2xl tracking-wider font-light">スタイリング</h2>
+                <p className="text-xs sm:text-sm text-gray-500 mt-1">{photos.length} photos</p>
               </div>
+              {/* PC: 上部ボタン */}
               <button
                 onClick={() => {
                   setEditingStyling(null);
                   setShowStylingModal(true);
                 }}
-                className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white hover:bg-gray-800 transition"
+                className="hidden sm:flex items-center gap-2 px-6 py-3 bg-gray-900 text-white hover:bg-gray-800 transition"
               >
                 <Plus className="w-5 h-5" />
                 <span>ADD PHOTO <span className="text-xs opacity-70">/ 写真追加</span></span>
@@ -984,6 +990,28 @@ export default function WardrobePage() {
         onEdit={handleEditStyling}
         onDelete={() => selectedStyling && handleDeleteStylingPhoto(selectedStyling.id)}
       />
+
+      {/* モバイル用FABボタン（親指が届く右下固定） */}
+      <div className="fixed bottom-6 right-5 sm:hidden z-40 flex flex-col items-end gap-3">
+        {viewMode === 'items' && (
+          <button
+            onClick={() => { setEditingItem(null); setShowAddModal(true); }}
+            className="flex items-center gap-2 px-5 py-4 bg-gray-900 text-white shadow-xl rounded-full text-sm font-medium tracking-wider hover:bg-gray-800 active:scale-95 transition"
+          >
+            <Plus className="w-5 h-5" />
+            追加
+          </button>
+        )}
+        {viewMode === 'styling' && (
+          <button
+            onClick={() => { setEditingStyling(null); setShowStylingModal(true); }}
+            className="flex items-center gap-2 px-5 py-4 bg-gray-900 text-white shadow-xl rounded-full text-sm font-medium tracking-wider hover:bg-gray-800 active:scale-95 transition"
+          >
+            <Plus className="w-5 h-5" />
+            写真追加
+          </button>
+        )}
+      </div>
     </div>
   );
 }

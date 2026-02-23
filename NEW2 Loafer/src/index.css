@@ -20,3 +20,34 @@
     font-family: 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
   }
 }
+
+/* 情報ページ（利用規約・プライバシーポリシー）のMarkdownスタイル */
+@layer components {
+  .prose-info h1 {
+    @apply text-2xl font-light tracking-widest mb-10 pb-4 border-b border-gray-200;
+  }
+  .prose-info h2 {
+    @apply text-base font-medium tracking-wider mt-12 mb-5 pt-8 border-t border-gray-100;
+  }
+  .prose-info h3 {
+    @apply text-sm font-medium tracking-wider mt-6 mb-3;
+  }
+  .prose-info p {
+    @apply text-sm text-gray-600 leading-loose mb-4;
+  }
+  .prose-info ul {
+    @apply space-y-2 mb-6 pl-4;
+  }
+  .prose-info li {
+    @apply text-sm text-gray-600 leading-relaxed list-disc list-inside;
+  }
+  .prose-info strong {
+    @apply font-semibold text-gray-800;
+  }
+  .prose-info a {
+    @apply text-gray-800 underline underline-offset-2 hover:opacity-60 transition-opacity;
+  }
+  .prose-info hr {
+    @apply border-gray-200 my-8;
+  }
+}

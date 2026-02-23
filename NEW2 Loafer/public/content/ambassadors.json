@@ -1,0 +1,25 @@
+[
+  {
+    "id": "yoneda",
+    "name": "米田 くん",
+    "profile_image": "/images/ambassadors/yoneda.jpg",
+    "bio_jp": "ファッションとテクノロジーを愛するインフルエンサー。特にレザーシューズへの深い知識と情熱を持ち、The Long Game のAIサイズレコメンド機能を日々活用しながら、ユーザーの足元スタイルをサポートしています。",
+    "bio_en": "An influencer passionate about fashion and technology. With deep knowledge of leather shoes, he leverages The Long Game's AI size recommendation feature daily to support users' footwear choices.",
+    "activities_jp": [
+      "レザーシューズレビュー記事の執筆",
+      "AIサイズレコメンド機能のテスト・フィードバック",
+      "SNSでのスタイリング提案（カジュアル〜フォーマル）",
+      "靴のお手入れ方法の紹介"
+    ],
+    "activities_en": [
+      "Writing leather shoe review articles",
+      "Testing and providing feedback on AI size recommendation features",
+      "Proposing styling on social media (casual to formal)",
+      "Introducing shoe care methods"
+    ],
+    "social_links": {
+      "instagram": "https://instagram.com/yoneda",
+      "twitter": "https://twitter.com/yoneda"
+    }
+  }
+]

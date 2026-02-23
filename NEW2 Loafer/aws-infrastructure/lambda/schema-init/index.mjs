@@ -156,13 +156,17 @@ export const handler = async (event) => {
                 cognito_user_id VARCHAR(255) NOT NULL,
                 name TEXT NOT NULL,
                 brand TEXT,
+                product_number TEXT,
                 size TEXT,
                 size_details JSONB,
+                model_worn_size TEXT,
+                measurements TEXT,
                 color TEXT,
                 category TEXT CHECK (category IS NULL OR category IN (
                     'トップス', 'アウター／ジャケット', 'パンツ', 
                     'その他（スーツ／ワンピース等）', 'バッグ', 'シューズ', 'アクセサリー／小物'
                 )),
+                wear_scene TEXT CHECK (wear_scene IS NULL OR wear_scene IN ('casual', 'formal', 'both')),
                 purchase_date DATE,
                 purchase_price INTEGER,
                 currency TEXT DEFAULT 'JPY',
@@ -249,6 +253,24 @@ export const handler = async (event) => {
                 ('アクセサリー', 'accessories', 'スタイリッシュなアクセサリー')
             ON CONFLICT (slug) DO NOTHING`,
             
+            // profiles テーブルにオンボーディング用カラムを追加（既存DBマイグレーション）
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS height_cm INTEGER`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS weight_kg INTEGER`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS age INTEGER`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS body_type TEXT CHECK (body_type IS NULL OR body_type IN ('straight', 'wave', 'natural'))`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS body_features TEXT[]`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS body_features_note TEXT`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS display_initial TEXT`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_wardrobe_public BOOLEAN DEFAULT FALSE`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_styling_public BOOLEAN DEFAULT FALSE`,
+
+            // wardrobe_items テーブルに新カラムを追加（既存DBマイグレーション）
+            `ALTER TABLE wardrobe_items ADD COLUMN IF NOT EXISTS product_number TEXT`,
+            `ALTER TABLE wardrobe_items ADD COLUMN IF NOT EXISTS model_worn_size TEXT`,
+            `ALTER TABLE wardrobe_items ADD COLUMN IF NOT EXISTS measurements TEXT`,
+            `ALTER TABLE wardrobe_items ADD COLUMN IF NOT EXISTS wear_scene TEXT CHECK (wear_scene IS NULL OR wear_scene IN ('casual', 'formal', 'both'))`,
+
             // 管理者ユーザーを作成
             `INSERT INTO profiles (cognito_user_id, email, is_admin) VALUES
                 ('87649a98-e0e1-7067-4c8a-b7fd0f084e3f', 'test@example.com', true),

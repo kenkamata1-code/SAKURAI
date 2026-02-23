@@ -159,6 +159,16 @@ export interface Profile {
   address?: string;
   gender?: string;
   birth_date?: string;
+  display_initial?: string;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  age?: number | null;
+  body_type?: 'straight' | 'wave' | 'natural' | null;
+  body_features?: string[] | null;
+  body_features_note?: string | null;
+  onboarding_completed?: boolean;
+  is_wardrobe_public?: boolean;
+  is_styling_public?: boolean;
   created_at: string;
   updated_at: string;
 }

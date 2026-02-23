@@ -92,14 +92,26 @@ export default function ItemCard({
               <p className="text-sm text-gray-600">{item.brand}</p>
             )}
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 items-end">
+            {/* 着用シーンバッジ */}
+            {item.wear_scene && (
+              <span className={`text-[10px] px-2 py-0.5 border tracking-wider ${
+                item.wear_scene === 'casual'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : item.wear_scene === 'formal'
+                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                  : 'bg-purple-50 text-purple-700 border-purple-200'
+              }`}>
+                {item.wear_scene === 'casual' ? 'CASUAL' : item.wear_scene === 'formal' ? 'FORMAL' : 'BOTH'}
+              </span>
+            )}
             {item.is_from_shop && (
-              <span className="text-xs px-2 py-1 bg-blue-50 text-blue-600 border border-blue-200">
+              <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 tracking-wider">
                 PURCHASED
               </span>
             )}
             {item.is_sold && (
-              <span className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200">
+              <span className="text-[10px] px-2 py-0.5 bg-green-50 text-green-600 border border-green-200 tracking-wider">
                 SOLD
               </span>
             )}

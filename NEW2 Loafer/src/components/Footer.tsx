@@ -22,34 +22,51 @@ export default function Footer() {
           </div>
 
           <div className="flex justify-between">
-            <nav className="space-y-3 text-xs tracking-wider">
-              <Link to="/" className="block hover:text-gray-400 transition-colors uppercase">
-                Home
-              </Link>
-              <Link to="/shop" className="block hover:text-gray-400 transition-colors uppercase">
-                Online Shop
-              </Link>
-              <Link to="/design-philosophy" className="block hover:text-gray-400 transition-colors uppercase">
-                Design Philosophy
-              </Link>
-              <Link to="/maintenance" className="block hover:text-gray-400 transition-colors uppercase">
-                Maintenance
-              </Link>
-              <Link to="/styling" className="block hover:text-gray-400 transition-colors uppercase">
-                Styling
-              </Link>
-              <Link to="/about" className="block hover:text-gray-400 transition-colors uppercase">
-                About
-              </Link>
-              <Link to="/contact" className="block hover:text-gray-400 transition-colors uppercase">
-                Contact
-              </Link>
-              <Link to="/login" className="block hover:text-gray-400 transition-colors uppercase">
-                Log In
-              </Link>
-            </nav>
+            <div className="flex gap-12">
+              {/* メインナビ */}
+              <nav className="space-y-3 text-xs tracking-wider">
+                <Link to="/" className="block hover:text-gray-400 transition-colors uppercase">
+                  Home
+                </Link>
+                <Link to="/shop" className="block hover:text-gray-400 transition-colors uppercase">
+                  Online Shop
+                </Link>
+                <Link to="/design-philosophy" className="block hover:text-gray-400 transition-colors uppercase">
+                  Design Philosophy
+                </Link>
+                <Link to="/maintenance" className="block hover:text-gray-400 transition-colors uppercase">
+                  Maintenance
+                </Link>
+                <Link to="/styling" className="block hover:text-gray-400 transition-colors uppercase">
+                  Styling
+                </Link>
+                <Link to="/ambassador" className="block hover:text-gray-400 transition-colors uppercase">
+                  Ambassador
+                </Link>
+                <Link to="/about" className="block hover:text-gray-400 transition-colors uppercase">
+                  About
+                </Link>
+                <Link to="/contact" className="block hover:text-gray-400 transition-colors uppercase">
+                  Contact
+                </Link>
+                <Link to="/login" className="block hover:text-gray-400 transition-colors uppercase">
+                  Log In
+                </Link>
+              </nav>
 
-            <div className="flex gap-4">
+              {/* 法的情報リンク */}
+              <nav className="space-y-3 text-xs tracking-wider text-gray-500">
+                <p className="text-[9px] tracking-[0.4em] text-gray-600 mb-4 uppercase">Legal</p>
+                <Link to="/terms" className="block hover:text-gray-300 transition-colors uppercase">
+                  Terms of Service
+                </Link>
+                <Link to="/privacy" className="block hover:text-gray-300 transition-colors uppercase">
+                  Privacy Policy
+                </Link>
+              </nav>
+            </div>
+
+            <div className="flex gap-4 self-start mt-1">
               <a href="#" className="hover:opacity-60 transition-opacity">
                 <Instagram className="w-4 h-4" strokeWidth={1.5} />
               </a>

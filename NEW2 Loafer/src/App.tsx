@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useAuth } from './contexts/AuthContext';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import ProductDetail from './pages/ProductDetail';
@@ -24,13 +26,36 @@ import AccountManagement from './pages/AccountManagement';
 import Analytics from './pages/Analytics';
 import OrderManagement from './pages/OrderManagement';
 import WardrobePage from './wardrobe/WardrobePage';
+import InfoPage from './pages/InfoPage';
+import Ambassador from './pages/Ambassador';
+import OnboardingModal from './wardrobe/components/OnboardingModal';
 
 function App() {
   const location = useLocation();
+  const { user, profile, loading: authLoading } = useAuth();
   const isLoginPage = location.pathname === '/login';
+
+  // オンボーディング表示フラグ
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    // ログイン済みかつプロフィール取得済みで、オンボーディング未完了の場合に表示
+    if (!authLoading && user && profile && !profile.onboarding_completed) {
+      setShowOnboarding(true);
+    }
+  }, [authLoading, user, profile]);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+  };
 
   return (
     <div className="min-h-screen bg-white">
+      {/* 初回ログインオンボーディング（他の操作をブロック） */}
+      {showOnboarding && (
+        <OnboardingModal onComplete={handleOnboardingComplete} />
+      )}
+
       {!isLoginPage && <Header />}
       <Routes>
         <Route path="/" element={<Home />} />
@@ -110,6 +135,11 @@ function App() {
         <Route path="/design-philosophy" element={<DesignPhilosophy />} />
         <Route path="/maintenance" element={<Maintenance />} />
         <Route path="/contact" element={<Contact />} />
+        {/* 情報ページ（利用規約・プライバシーポリシー等） */}
+        <Route path="/terms" element={<InfoPage slug="terms" />} />
+        <Route path="/privacy" element={<InfoPage slug="privacy" />} />
+        {/* アンバサダーページ */}
+        <Route path="/ambassador" element={<Ambassador />} />
       </Routes>
       {!isLoginPage && <Footer />}
       {!isLoginPage && <ScrollToTop />}

@@ -391,7 +391,13 @@ export const handler = async (event) => {
       const values = [];
       let paramIndex = 1;
 
-      const allowedFields = ["first_name", "last_name", "phone", "postal_code", "address", "gender", "birth_date", "full_name"];
+      const allowedFields = [
+        "first_name", "last_name", "phone", "postal_code", "address",
+        "gender", "birth_date", "full_name", "display_initial",
+        "height_cm", "weight_kg", "age", "body_type",
+        "body_features", "body_features_note",
+        "onboarding_completed", "is_wardrobe_public", "is_styling_public"
+      ];
       for (const field of allowedFields) {
         if (parsedBody[field] !== undefined) {
           fields.push(`${field} = $${paramIndex}`);
@@ -1237,22 +1243,26 @@ export const handler = async (event) => {
       
       const parsedBody = JSON.parse(body || "{}");
       const { 
-        name, brand, size, size_details, color, category,
-        purchase_date, purchase_price, currency, purchase_location,
-        source_url, image_url, image_url_2, image_url_3, notes, is_from_shop
+        name, brand, product_number, size, size_details, model_worn_size, measurements,
+        color, category, purchase_date, purchase_price, currency, purchase_location,
+        source_url, image_url, image_url_2, image_url_3, notes, wear_scene, is_from_shop
       } = parsedBody;
 
       const result = await db.query(`
         INSERT INTO wardrobe_items (
-          cognito_user_id, name, brand, size, size_details, color, category,
+          cognito_user_id, name, brand, product_number, size, size_details,
+          model_worn_size, measurements, color, category,
           purchase_date, purchase_price, currency, purchase_location,
-          source_url, image_url, image_url_2, image_url_3, notes, is_from_shop
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          source_url, image_url, image_url_2, image_url_3, notes, wear_scene, is_from_shop
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
         RETURNING *
       `, [
-        userId, name, brand, size, size_details ? JSON.stringify(size_details) : null, 
-        color, category, purchase_date, purchase_price, currency || 'JPY', 
-        purchase_location, source_url, image_url, image_url_2, image_url_3, notes, is_from_shop || false
+        userId, name, brand, product_number || null, size,
+        size_details ? JSON.stringify(size_details) : null,
+        model_worn_size || null, measurements || null,
+        color, category, purchase_date, purchase_price, currency || 'JPY',
+        purchase_location, source_url, image_url, image_url_2, image_url_3,
+        notes, wear_scene || null, is_from_shop || false
       ]);
       return response(200, result.rows[0]);
     }
@@ -1268,9 +1278,11 @@ export const handler = async (event) => {
       let paramIndex = 1;
 
       const allowedFields = [
-        "name", "brand", "size", "size_details", "color", "category",
+        "name", "brand", "product_number", "size", "size_details",
+        "model_worn_size", "measurements", "color", "category",
         "purchase_date", "purchase_price", "currency", "purchase_location",
         "source_url", "image_url", "image_url_2", "image_url_3", "notes",
+        "wear_scene",
         "is_discarded", "discarded_at", "is_sold", "sold_date", "sold_price", "sold_currency", "sold_location"
       ];
       
