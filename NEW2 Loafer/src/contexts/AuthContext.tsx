@@ -114,6 +114,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkAuthState]);
 
   const signIn = async (email: string, password: string) => {
+    // 既存セッションが残っている場合は先にサインアウトする
+    try {
+      await amplifySignOut();
+    } catch {
+      // サインアウト失敗は無視（セッションなしの場合も含む）
+    }
     const result = await amplifySignIn({ username: email, password });
     
     if (result.isSignedIn) {
