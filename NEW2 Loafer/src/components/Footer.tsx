@@ -14,11 +14,6 @@ export default function Footer() {
               <p>Updated with time.<br />
               <span className="text-[11px]">ライフスタイルに合わせて、止まらず静かに更新していくこと。</span></p>
             </div>
-            <div className="text-xs leading-loose text-gray-500 pt-8 space-y-1">
-              <p>〒150-0001</p>
-              <p>東京都渋谷区神宮前1-1-1 代表ビル 00-00</p>
-              <p>TEL: 03-0000-0000</p>
-            </div>
           </div>
 
           <div className="flex justify-between">
