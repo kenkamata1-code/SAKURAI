@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+// Vite の ?raw インポートでビルド時にバンドル（fetchしない）
+import termsRaw from '../content/terms.md?raw';
+import privacyRaw from '../content/privacy.md?raw';
 
 interface InfoPageProps {
   slug: 'terms' | 'privacy';
 }
 
-// ページ設定
 const PAGE_CONFIG = {
   terms: {
-    file: '/content/terms.md',
+    content: termsRaw,
     title: 'TERMS OF SERVICE',
     titleJa: '利用規約',
   },
   privacy: {
-    file: '/content/privacy.md',
+    content: privacyRaw,
     title: 'PRIVACY POLICY',
     titleJa: 'プライバシーポリシー',
   },
@@ -21,17 +22,13 @@ const PAGE_CONFIG = {
 
 // Markdown の1行をインライン要素としてJSXにレンダリング
 function InlineText({ text }: { text: string }) {
-  // **bold** → <strong>、*italic* → <em>、[link](url) → <a>
   const parts: React.ReactNode[] = [];
   let remaining = text;
   let key = 0;
 
   while (remaining.length > 0) {
-    // **bold**
     const boldMatch = remaining.match(/^(.*?)\*\*(.+?)\*\*(.*)/s);
-    // *italic*
     const italicMatch = remaining.match(/^(.*?)\*([^*]+?)\*(.*)/s);
-    // [text](url)
     const linkMatch = remaining.match(/^(.*?)\[(.+?)\]\((.+?)\)(.*)/s);
 
     if (!boldMatch && !italicMatch && !linkMatch) {
@@ -39,7 +36,6 @@ function InlineText({ text }: { text: string }) {
       break;
     }
 
-    // 最も早い位置のものを選ぶ
     const boldPos = boldMatch ? boldMatch[1].length : Infinity;
     const italicPos = italicMatch ? italicMatch[1].length : Infinity;
     const linkPos = linkMatch ? linkMatch[1].length : Infinity;
@@ -157,34 +153,7 @@ function renderMarkdown(md: string): React.ReactNode[] {
 }
 
 export default function InfoPage({ slug }: InfoPageProps) {
-  const [content, setContent] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const config = PAGE_CONFIG[slug];
-
-  useEffect(() => {
-    setLoading(true);
-    setError(false);
-    setContent('');
-    fetch(config.file)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.text();
-      })
-      .then(text => {
-        // index.html が返ってきた場合（SPAリライトのバグ）を検出
-        if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-          throw new Error('HTML returned instead of markdown');
-        }
-        setContent(text);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('InfoPage fetch error:', err);
-        setError(true);
-        setLoading(false);
-      });
-  }, [slug]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -208,21 +177,9 @@ export default function InfoPage({ slug }: InfoPageProps) {
 
       {/* コンテンツ */}
       <div className="max-w-3xl mx-auto px-6 py-16">
-        {loading && (
-          <div className="flex items-center justify-center py-24">
-            <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-          </div>
-        )}
-        {error && (
-          <div className="text-center py-24">
-            <p className="text-gray-400 text-sm">コンテンツを読み込めませんでした</p>
-          </div>
-        )}
-        {!loading && !error && (
-          <div className="space-y-0">
-            {renderMarkdown(content)}
-          </div>
-        )}
+        <div className="space-y-0">
+          {renderMarkdown(config.content)}
+        </div>
       </div>
 
       {/* 関連リンク */}
