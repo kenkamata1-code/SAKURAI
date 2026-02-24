@@ -523,11 +523,18 @@ function AmbassadorSection() {
 
         {/* アンバサダー情報（中央寄せ） */}
         <div className="flex flex-col items-center text-center max-w-xl mx-auto">
-          {/* 丸い顔写真プレースホルダー */}
-          <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 mb-6 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-gray-400">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+          {/* 丸い顔写真 */}
+          <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 mb-6">
+            <img
+              src="/images/ambassadors/yoneda.jpg"
+              alt="米田 敬"
+              className="w-full h-full object-cover object-top"
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement;
+                target.style.display = 'none';
+                target.parentElement!.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-gray-400 m-auto mt-3"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>';
+              }}
+            />
           </div>
 
           <h3 className="text-xl font-light tracking-[0.15em] mb-1">米田 敬</h3>

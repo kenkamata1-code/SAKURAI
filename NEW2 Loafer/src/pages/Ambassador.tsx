@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const ambassador = {
   name_jp: '米田 敬',
   name_en: 'KEI YONEDA',
-  profile_image: null as string | null, // 写真が届いたら "/images/ambassadors/yoneda.jpg" を設定
+  profile_image: '/images/ambassadors/yoneda.jpg' as string | null,
   birth: '1987年6月11日生まれ',
   height: '178cm',
   shoe_size: 'UK6',
@@ -31,6 +31,18 @@ export default function Ambassador() {
           <Link to="/" className="hover:text-gray-700 transition-colors">HOME</Link>
           <span>/</span>
           <span className="text-gray-600">AMBASSADOR</span>
+        </div>
+      </div>
+
+      {/* ウェルカムメッセージ */}
+      <div className="border-b border-gray-100 bg-gray-50">
+        <div className="max-w-3xl mx-auto px-6 py-12 text-center">
+          <p className="text-sm text-gray-600 leading-loose tracking-wide">
+            THE LONG GAME は、さまざまな分野の第一線で活躍する皆様を心から応援しています。
+          </p>
+          <p className="text-xs text-gray-400 leading-loose mt-2 tracking-wider">
+            THE LONG GAME wholeheartedly supports those who are active at the forefront of various fields.
+          </p>
         </div>
       </div>
 
