@@ -5,7 +5,7 @@ import { Instagram, Twitter, ExternalLink } from 'lucide-react';
 interface AmbassadorData {
   id: string;
   name: string;
-  profile_image: string;
+  profile_image: string | null;
   bio_jp: string;
   bio_en: string;
   activities_jp: string[];
@@ -78,20 +78,23 @@ export default function Ambassador() {
           >
             {/* プロフィール画像 */}
             <div className="flex-shrink-0 w-full md:w-56">
-              <div className="aspect-square bg-gray-100 overflow-hidden">
-                <img
-                  src={ambassador.profile_image}
-                  alt={ambassador.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // 画像読み込みエラー時はプレースホルダー表示
-                    (e.currentTarget as HTMLImageElement).style.display = 'none';
-                    (e.currentTarget.parentElement as HTMLElement).innerHTML =
-                      `<div class="w-full h-full flex items-center justify-center text-gray-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                      </div>`;
-                  }}
-                />
+              <div className="aspect-square bg-gray-100 overflow-hidden flex items-center justify-center">
+                {ambassador.profile_image ? (
+                  <img
+                    src={ambassador.profile_image}
+                    alt={ambassador.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // 画像読み込みエラー時はプレースホルダー表示
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  // 画像なしのプレースホルダー
+                  <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-gray-300">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                )}
               </div>
 
               {/* SNSリンク */}

@@ -118,6 +118,42 @@ const isAdmin = async (db, userId) => {
   return result.rows[0]?.is_admin === true;
 };
 
+// スキーマの自動マイグレーション（Lambda コールドスタート時に1回だけ実行）
+let schemaInitialized = false;
+const ensureSchema = async (db) => {
+  if (schemaInitialized) return;
+  try {
+    const migrations = [
+      // profiles テーブルの追加カラム
+      `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS height_cm INTEGER`,
+      `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS weight_kg NUMERIC(5,2)`,
+      `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS age INTEGER`,
+      `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS body_type VARCHAR(50)`,
+      `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS body_features TEXT[]`,
+      `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS body_features_note TEXT`,
+      `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE`,
+      // wardrobe_items テーブルの追加カラム
+      `ALTER TABLE wardrobe_items ADD COLUMN IF NOT EXISTS wear_scene VARCHAR(20) DEFAULT 'Both'`,
+      `ALTER TABLE wardrobe_items ADD COLUMN IF NOT EXISTS product_number VARCHAR(100)`,
+      `ALTER TABLE wardrobe_items ADD COLUMN IF NOT EXISTS model_worn_size VARCHAR(50)`,
+      `ALTER TABLE wardrobe_items ADD COLUMN IF NOT EXISTS measurements JSONB`,
+      // foot_measurements テーブルの追加カラム
+      `ALTER TABLE foot_measurements ADD COLUMN IF NOT EXISTS girth_mm INTEGER`,
+      `ALTER TABLE foot_measurements ADD COLUMN IF NOT EXISTS heel_width_mm INTEGER`,
+      `ALTER TABLE foot_measurements ADD COLUMN IF NOT EXISTS toe_shape VARCHAR(20)`,
+    ];
+    for (const sql of migrations) {
+      await db.query(sql);
+    }
+    schemaInitialized = true;
+    console.log("スキーママイグレーション完了");
+  } catch (err) {
+    // マイグレーション失敗してもアプリは継続する
+    console.error("スキーママイグレーションエラー:", err.message);
+    schemaInitialized = true; // 再試行しない
+  }
+};
+
 export const handler = async (event) => {
   const { path, method, body, queryParams, headers } = getRequestInfo(event);
   
@@ -127,6 +163,9 @@ export const handler = async (event) => {
   }
 
   const db = getPool();
+  
+  // DBスキーマの自動マイグレーション
+  await ensureSchema(db);
   const userId = getUserId(event);
 
   try {
