@@ -25,39 +25,22 @@ function HeroSection() {
     <section className="pt-16">
       <div className="relative">
         <div className="grid md:grid-cols-2">
-          {/* 左：画像 + Coming Soon オーバーレイ */}
-          <div className="relative aspect-[4/3] md:aspect-[3/2] overflow-hidden bg-gray-900">
+          {/* 左：画像 */}
+          <div className="aspect-[4/3] md:aspect-[3/2] overflow-hidden bg-gray-900">
             <img
               src="/hero-left.png"
               alt="Product"
-              className="w-full h-full object-cover opacity-40"
+              className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <p className="text-[10px] tracking-[0.5em] text-white/60 mb-3">NEW COLLECTION</p>
-              <h2 className="text-3xl md:text-4xl lg:text-5xl tracking-[0.4em] text-white font-light">
-                COMING
-              </h2>
-              <h2 className="text-3xl md:text-4xl lg:text-5xl tracking-[0.4em] text-white font-light mt-1">
-                SOON
-              </h2>
-              <div className="mt-6 w-16 h-px bg-white/40" />
-            </div>
           </div>
 
-          {/* 右：画像 + Coming Soon オーバーレイ */}
-          <div className="relative aspect-[4/3] md:aspect-[3/2] overflow-hidden bg-gray-800">
+          {/* 右：画像 */}
+          <div className="aspect-[4/3] md:aspect-[3/2] overflow-hidden bg-gray-800">
             <img
               src="/hero-right.png"
               alt="Product"
-              className="w-full h-full object-cover opacity-40"
+              className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <p className="text-[10px] tracking-[0.5em] text-white/60 mb-4">2026</p>
-              <p className="text-xs tracking-[0.3em] text-white/80">
-                近日公開 / Launching Soon
-              </p>
-              <div className="mt-6 w-16 h-px bg-white/40" />
-            </div>
           </div>
         </div>
       </div>
@@ -315,10 +298,8 @@ function BrandSection() {
                 <div className={`aspect-[16/10] rounded-sm overflow-hidden ${
                   brand.image === 'dark'
                     ? 'bg-gradient-to-br from-gray-800 to-gray-900'
-                    : brand.image === 'design'
-                    ? 'bg-gradient-to-br from-[#87CEEB] to-[#5BA3C7]'
-                    : brand.image === 'sole'
-                    ? 'bg-white'
+                    : brand.image === 'design' || brand.image === 'sole'
+                    ? 'bg-gray-900'
                     : 'bg-gradient-to-br from-gray-100 to-gray-200'
                 }`}>
                   {brand.image === 'dark' ? (
@@ -328,11 +309,12 @@ function BrandSection() {
                       className="w-full h-full object-cover"
                     />
                   ) : brand.image === 'design' ? (
-                    <img
-                      src="/design-02.png"
-                      alt={brand.label}
-                      className="w-full h-full object-cover"
-                    />
+                    /* COMING SOON プレースホルダー */
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                      <p className="text-[10px] tracking-[0.5em] text-white/40">DETAILS</p>
+                      <p className="text-2xl md:text-3xl tracking-[0.4em] text-white/70 font-light">COMING SOON</p>
+                      <div className="w-12 h-px bg-white/20 mt-2" />
+                    </div>
                   ) : brand.image === 'light' ? (
                     <img
                       src="/image copy copy copy copy copy copy.png"
@@ -340,11 +322,12 @@ function BrandSection() {
                       className="w-full h-full object-cover"
                     />
                   ) : brand.image === 'sole' ? (
-                    <img
-                      src="/image copy copy copy copy copy copy copy copy copy copy copy copy copy copy copy copy copy copy.png"
-                      alt={brand.label}
-                      className="w-full h-full object-contain p-8"
-                    />
+                    /* COMING SOON プレースホルダー */
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                      <p className="text-[10px] tracking-[0.5em] text-white/40">DETAILS</p>
+                      <p className="text-2xl md:text-3xl tracking-[0.4em] text-white/70 font-light">COMING SOON</p>
+                      <div className="w-12 h-px bg-white/20 mt-2" />
+                    </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center p-16">
                       <div className="text-6xl text-white/10 font-light tracking-widest">
@@ -549,12 +532,8 @@ function AmbassadorSection() {
 
           <h3 className="text-xl font-light tracking-[0.15em] mb-1">米田 敬</h3>
           <p className="text-[10px] tracking-[0.4em] text-gray-400 mb-2">KEI YONEDA</p>
-          <p className="text-[10px] text-gray-400 mb-8">
+          <p className="text-[10px] text-gray-400 mb-10">
             1987年6月11日生まれ（178cm / 靴サイズ UK6）　東京都出身
-          </p>
-
-          <p className="text-sm text-gray-600 leading-loose mb-10">
-            俳優として舞台・映画・ドラマ・CMと幅広く活躍。「シン・仮面ライダー」「青春18×2 君へと続く道」など話題作への出演を重ね、存在感あふれる演技で注目を集める。トライアスロン東京都優勝、甲子園出場（慶應義塾高校）など、アスリートとしての顔も持つ。車椅子バスケなど多岐にわたる活動で活躍。
           </p>
 
           <Link
