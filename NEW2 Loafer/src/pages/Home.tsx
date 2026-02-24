@@ -528,75 +528,41 @@ function StylingSection() {
 
 function AmbassadorSection() {
   return (
-    <section className="py-20 md:py-28 px-6 bg-gray-900 text-white">
+    <section className="py-20 px-6 bg-gray-50">
       <div className="max-w-[1200px] mx-auto">
-        <div className="grid md:grid-cols-2 gap-12 md:gap-20 items-center">
+        {/* セクションタイトル */}
+        <div className="text-center mb-16">
+          <h2 className="text-2xl md:text-3xl tracking-[0.3em] mb-3 font-light">
+            AMBASSADOR
+          </h2>
+          <p className="text-xs tracking-[0.15em] text-gray-500">アンバサダー / Our Ambassador</p>
+        </div>
 
-          {/* 写真 */}
-          <div className="relative">
-            <div className="aspect-[3/4] overflow-hidden bg-gray-800 max-w-sm mx-auto md:mx-0">
-              <img
-                src="/images/ambassadors/yoneda.jpg"
-                alt="KEI YONEDA"
-                className="w-full h-full object-cover object-top"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            </div>
-            {/* デコレーションライン */}
-            <div className="absolute -bottom-4 -right-4 w-2/3 h-2/3 border border-white/10 pointer-events-none hidden md:block" />
+        {/* アンバサダー情報（中央寄せ） */}
+        <div className="flex flex-col items-center text-center max-w-xl mx-auto">
+          {/* 丸い顔写真プレースホルダー */}
+          <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 mb-6 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-gray-400">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
           </div>
 
-          {/* テキスト */}
-          <div className="space-y-8">
-            <div>
-              <p className="text-[10px] tracking-[0.5em] text-gray-400 mb-4">AMBASSADOR</p>
-              <h2 className="text-3xl md:text-4xl font-light tracking-[0.15em] mb-2">
-                米田 敬
-              </h2>
-              <p className="text-xs tracking-[0.3em] text-gray-400 mb-8">KEI YONEDA</p>
+          <h3 className="text-xl font-light tracking-[0.15em] mb-1">米田 敬</h3>
+          <p className="text-[10px] tracking-[0.4em] text-gray-400 mb-2">KEI YONEDA</p>
+          <p className="text-[10px] text-gray-400 mb-8">
+            1987年6月11日生まれ（178cm / 靴サイズ UK6）　東京都出身
+          </p>
 
-              <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-400 mb-8">
-                <span>178cm</span>
-                <span>靴 27cm</span>
-                <span>慶應義塾大学商学部卒</span>
-              </div>
+          <p className="text-sm text-gray-600 leading-loose mb-10">
+            俳優として舞台・映画・ドラマ・CMと幅広く活躍。「シン・仮面ライダー」「青春18×2 君へと続く道」など話題作への出演を重ね、存在感あふれる演技で注目を集める。トライアスロン東京都優勝、甲子園出場（慶應義塾高校）など、アスリートとしての顔も持つ。車椅子バスケなど多岐にわたる活動で活躍。
+          </p>
 
-              <p className="text-sm text-gray-300 leading-loose">
-                俳優として舞台・映画・ドラマ・CMと幅広く活躍。
-                庵野秀明監督「シン・仮面ライダー」、藤井道人監督「青春18×2 君へと続く道」など
-                話題作に立て続けに出演。トライアスロン東京都優勝、甲子園出場を誇るアスリートの顔も持つ。
-              </p>
-              <p className="text-xs text-gray-500 leading-loose mt-3">
-                Actor active across stage, film, drama, and commercials.
-                Known for 'Shin Kamen Rider' (dir. Hideaki Anno) and 'My Youth, My Forever' (dir. Michihito Fujii).
-                Also a champion triathlete and former Koshien baseball player.
-              </p>
-            </div>
-
-            {/* 代表作タグ */}
-            <div className="flex flex-wrap gap-2">
-              {['シン・仮面ライダー', 'TOKYO MER', '青春18×2', 'ヘルドッグス'].map(work => (
-                <span
-                  key={work}
-                  className="px-3 py-1 border border-white/20 text-[10px] tracking-wider text-gray-400"
-                >
-                  {work}
-                </span>
-              ))}
-            </div>
-
-            {/* ボタン */}
-            <div className="pt-4">
-              <Link
-                to="/ambassador"
-                className="inline-block px-10 py-4 border border-white text-xs tracking-[0.3em] hover:bg-white hover:text-gray-900 transition-all duration-300 uppercase"
-              >
-                View Profile
-              </Link>
-            </div>
-          </div>
+          <Link
+            to="/ambassador"
+            className="inline-block px-12 py-3 border border-gray-900 text-xs tracking-[0.2em] hover:bg-gray-900 hover:text-white transition uppercase"
+          >
+            View Profile
+          </Link>
         </div>
       </div>
     </section>
