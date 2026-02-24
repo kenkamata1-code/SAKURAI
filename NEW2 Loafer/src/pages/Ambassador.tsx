@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+// Vite の JSON インポートでバンドル時に組み込む（fetchしない）
+import ambassadorsData from '../content/ambassadors.json';
 
 // -------------------- 型定義 --------------------
 interface WorkEntry {
@@ -63,17 +65,9 @@ function WorkTable({ entries }: { entries: WorkEntry[] }) {
 
 // -------------------- メインコンポーネント --------------------
 export default function Ambassador() {
-  const [ambassadors, setAmbassadors] = useState<AmbassadorData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  // JSON はビルド時にバンドル済み
+  const ambassadors = ambassadorsData as AmbassadorData[];
   const [activeTab, setActiveTab] = useState<'stage' | 'film' | 'drama' | 'cm'>('film');
-
-  useEffect(() => {
-    fetch('/content/ambassadors.json')
-      .then(res => { if (!res.ok) throw new Error(); return res.json(); })
-      .then((data: AmbassadorData[]) => { setAmbassadors(data); setLoading(false); })
-      .catch(() => { setError(true); setLoading(false); });
-  }, []);
 
   return (
     <div className="min-h-screen bg-white">
@@ -97,18 +91,7 @@ export default function Ambassador() {
 
       {/* コンテンツ */}
       <div className="max-w-5xl mx-auto px-6 pb-24">
-        {loading && (
-          <div className="flex items-center justify-center py-24">
-            <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-          </div>
-        )}
-        {error && (
-          <div className="text-center py-24">
-            <p className="text-gray-400 text-sm">コンテンツを読み込めませんでした</p>
-          </div>
-        )}
-
-        {!loading && !error && ambassadors.map((amb) => (
+        {ambassadors.map((amb) => (
           <div key={amb.id}>
             {/* ==================== ヒーロー ==================== */}
             <div className="grid md:grid-cols-2 gap-0 mb-16 mt-12">
@@ -272,7 +255,7 @@ export default function Ambassador() {
         ))}
 
         {/* アンバサダー募集 */}
-        {!loading && !error && (
+        {(
           <div className="border border-gray-200 p-10 text-center">
             <p className="text-[10px] tracking-[0.4em] text-gray-400 mb-4">JOIN US</p>
             <h3 className="text-lg font-light tracking-wider mb-4">アンバサダー募集</h3>
