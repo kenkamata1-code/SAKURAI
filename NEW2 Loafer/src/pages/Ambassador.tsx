@@ -5,6 +5,7 @@ const ambassador = {
   name_jp: '米田 敬',
   name_en: 'KEI YONEDA',
   profile_image: '/images/ambassadors/yoneda.jpg' as string | null,
+  occupation: '俳優',
   birth: '1987年6月11日生まれ',
   height: '178cm',
   shoe_size: 'UK6',
@@ -67,7 +68,8 @@ export default function Ambassador() {
 
           {/* 名前 */}
           <h2 className="text-2xl font-light tracking-[0.15em] mb-1">{ambassador.name_jp}</h2>
-          <p className="text-xs tracking-[0.4em] text-gray-400 mb-4">{ambassador.name_en}</p>
+          <p className="text-xs tracking-[0.4em] text-gray-400 mb-3">{ambassador.name_en}</p>
+          <p className="text-[10px] tracking-[0.2em] text-gray-400 mb-4">{ambassador.occupation}</p>
 
           {/* 基本情報 */}
           <p className="text-xs text-gray-500 mb-10">

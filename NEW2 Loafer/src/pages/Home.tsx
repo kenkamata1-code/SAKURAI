@@ -540,7 +540,7 @@ function AmbassadorSection() {
           <h3 className="text-xl font-light tracking-[0.15em] mb-1">米田 敬</h3>
           <p className="text-[10px] tracking-[0.4em] text-gray-400 mb-2">KEI YONEDA</p>
           <p className="text-[10px] text-gray-400 mb-10">
-            1987年6月11日生まれ（178cm / 靴サイズ UK6）　東京都出身
+            俳優／東京都
           </p>
 
           <Link
