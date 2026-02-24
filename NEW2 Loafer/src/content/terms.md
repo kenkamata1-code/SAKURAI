@@ -229,6 +229,14 @@ For inquiries regarding these Terms, please use our [Contact page](/contact).
 
 ---
 
+## Seller Information / 販売者情報
+
+- **Seller / 販売者**: THE LONG GAME　代表：TADAMOTO
+- **Address / 所在地**: 〒253-0054 神奈川県茅ヶ崎市中海岸1-2-7-413
+- **Email**: info@thelonggame.jp
+
+---
+
 Effective date: January 25, 2026 / 制定日：2026年1月25日
 
 Last updated: January 25, 2026 / 最終更新日：2026年1月25日

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, MapPin, Phone } from 'lucide-react';
+import { Mail, MapPin } from 'lucide-react';
 import { usePageTracking } from '../hooks/usePageTracking';
 import { trackContactSubmit } from '../lib/gtm';
 
@@ -76,18 +76,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <h3 className="text-sm tracking-wider font-light mb-1">Email</h3>
-                    <p className="text-xs text-gray-600">info@thelonggame.com</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-10 h-10 border border-gray-300 flex items-center justify-center">
-                    <Phone className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm tracking-wider font-light mb-1">Phone</h3>
-                    <p className="text-xs text-gray-600">03-0000-0000</p>
-                    <p className="text-xs text-gray-500 mt-1">平日 10:00 - 18:00 / Weekdays 10:00 - 18:00</p>
+                    <p className="text-xs text-gray-600">info@thelonggame.jp</p>
                   </div>
                 </div>
 
@@ -96,10 +85,23 @@ export default function Contact() {
                     <MapPin className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
                   </div>
                   <div>
-                    <h3 className="text-sm tracking-wider font-light mb-1">Address</h3>
+                    <h3 className="text-sm tracking-wider font-light mb-1">Address / 所在地</h3>
                     <p className="text-xs text-gray-600">
-                      〒000-0000<br />
-                      東京都〇〇区〇〇 0-0-0
+                      〒253-0054<br />
+                      神奈川県茅ヶ崎市中海岸1-2-7-413
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 border border-gray-300 flex items-center justify-center">
+                    <span className="text-[10px] text-gray-600 font-light tracking-wider">CO.</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm tracking-wider font-light mb-1">Seller / 販売者</h3>
+                    <p className="text-xs text-gray-600">
+                      THE LONG GAME<br />
+                      代表：TADAMOTO
                     </p>
                   </div>
                 </div>

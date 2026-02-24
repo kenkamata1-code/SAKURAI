@@ -24,20 +24,39 @@ function HeroSection() {
     <section className="pt-16">
       <div className="relative">
         <div className="grid md:grid-cols-2">
-          <div className="relative aspect-[4/3] md:aspect-[3/2] overflow-hidden">
+          {/* 左：画像 + Coming Soon オーバーレイ */}
+          <div className="relative aspect-[4/3] md:aspect-[3/2] overflow-hidden bg-gray-900">
             <img
               src="/hero-left.png"
               alt="Product"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover opacity-40"
             />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <p className="text-[10px] tracking-[0.5em] text-white/60 mb-3">NEW COLLECTION</p>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl tracking-[0.4em] text-white font-light">
+                COMING
+              </h2>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl tracking-[0.4em] text-white font-light mt-1">
+                SOON
+              </h2>
+              <div className="mt-6 w-16 h-px bg-white/40" />
+            </div>
           </div>
 
-          <div className="relative aspect-[4/3] md:aspect-[3/2] overflow-hidden">
+          {/* 右：画像 + Coming Soon オーバーレイ */}
+          <div className="relative aspect-[4/3] md:aspect-[3/2] overflow-hidden bg-gray-800">
             <img
               src="/hero-right.png"
               alt="Product"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover opacity-40"
             />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <p className="text-[10px] tracking-[0.5em] text-white/60 mb-4">2026</p>
+              <p className="text-xs tracking-[0.3em] text-white/80">
+                近日公開 / Launching Soon
+              </p>
+              <div className="mt-6 w-16 h-px bg-white/40" />
+            </div>
           </div>
         </div>
       </div>
