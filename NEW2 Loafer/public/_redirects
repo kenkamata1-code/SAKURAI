@@ -1,2 +1,5 @@
-/*    /index.html   200
+# 静的コンテンツは直接配信（リダイレクト対象外）
+/content/*  /content/:splat  200
 
+# SPA フォールバック（上記にマッチしないルートはすべて index.html へ）
+/*    /index.html   200

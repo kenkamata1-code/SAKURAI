@@ -19,69 +19,141 @@ const PAGE_CONFIG = {
   },
 } as const;
 
-// インライン要素（太字・リンク）のMarkdown変換
-function processInline(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+// Markdown の1行をインライン要素としてJSXにレンダリング
+function InlineText({ text }: { text: string }) {
+  // **bold** → <strong>、*italic* → <em>、[link](url) → <a>
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  while (remaining.length > 0) {
+    // **bold**
+    const boldMatch = remaining.match(/^(.*?)\*\*(.+?)\*\*(.*)/s);
+    // *italic*
+    const italicMatch = remaining.match(/^(.*?)\*([^*]+?)\*(.*)/s);
+    // [text](url)
+    const linkMatch = remaining.match(/^(.*?)\[(.+?)\]\((.+?)\)(.*)/s);
+
+    if (!boldMatch && !italicMatch && !linkMatch) {
+      parts.push(<span key={key++}>{remaining}</span>);
+      break;
+    }
+
+    // 最も早い位置のものを選ぶ
+    const boldPos = boldMatch ? boldMatch[1].length : Infinity;
+    const italicPos = italicMatch ? italicMatch[1].length : Infinity;
+    const linkPos = linkMatch ? linkMatch[1].length : Infinity;
+
+    if (boldPos <= italicPos && boldPos <= linkPos && boldMatch) {
+      if (boldMatch[1]) parts.push(<span key={key++}>{boldMatch[1]}</span>);
+      parts.push(<strong key={key++} className="font-semibold text-gray-800">{boldMatch[2]}</strong>);
+      remaining = boldMatch[3];
+    } else if (italicPos <= boldPos && italicPos <= linkPos && italicMatch) {
+      if (italicMatch[1]) parts.push(<span key={key++}>{italicMatch[1]}</span>);
+      parts.push(<em key={key++}>{italicMatch[2]}</em>);
+      remaining = italicMatch[3];
+    } else if (linkMatch) {
+      if (linkMatch[1]) parts.push(<span key={key++}>{linkMatch[1]}</span>);
+      parts.push(
+        <a key={key++} href={linkMatch[3]} className="text-gray-800 underline underline-offset-2 hover:opacity-60 transition-opacity">
+          {linkMatch[2]}
+        </a>
+      );
+      remaining = linkMatch[4];
+    } else {
+      parts.push(<span key={key++}>{remaining}</span>);
+      break;
+    }
+  }
+
+  return <>{parts}</>;
 }
 
-// シンプルなMarkdown → HTML 変換（ブラケットカウント不要のテキスト処理）
-function renderMarkdown(md: string): string {
+// Markdown → React要素の配列に変換
+function renderMarkdown(md: string): React.ReactNode[] {
   const lines = md.split('\n');
-  const html: string[] = [];
+  const elements: React.ReactNode[] = [];
   let paraLines: string[] = [];
-  let inList = false;
+  let listItems: string[] = [];
+  let key = 0;
 
   const flushPara = () => {
     if (paraLines.length > 0) {
       const text = paraLines.join(' ').trim();
-      if (text) html.push(`<p>${processInline(text)}</p>`);
+      if (text) {
+        elements.push(
+          <p key={key++} className="text-sm text-gray-600 leading-loose mb-4">
+            <InlineText text={text} />
+          </p>
+        );
+      }
       paraLines = [];
     }
   };
-  const openList = () => { if (!inList) { html.push('<ul>'); inList = true; } };
-  const closeList = () => { if (inList) { html.push('</ul>'); inList = false; } };
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul key={key++} className="space-y-2 mb-6 pl-4 list-disc list-inside">
+          {listItems.map((item, i) => (
+            <li key={i} className="text-sm text-gray-600 leading-relaxed">
+              <InlineText text={item} />
+            </li>
+          ))}
+        </ul>
+      );
+      listItems = [];
+    }
+  };
 
   for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (/^---+$/.test(trimmed)) {
-      flushPara(); closeList();
-      html.push('<hr />');
+    if (/^---+$/.test(line.trim())) {
+      flushPara(); flushList();
+      elements.push(<hr key={key++} className="border-gray-200 my-8" />);
       continue;
     }
     if (line.startsWith('# ')) {
-      flushPara(); closeList();
-      html.push(`<h1>${processInline(line.slice(2))}</h1>`);
+      flushPara(); flushList();
+      elements.push(
+        <h1 key={key++} className="text-2xl font-light tracking-widest mb-10 pb-4 border-b border-gray-200">
+          <InlineText text={line.slice(2)} />
+        </h1>
+      );
       continue;
     }
     if (line.startsWith('## ')) {
-      flushPara(); closeList();
-      html.push(`<h2>${processInline(line.slice(3))}</h2>`);
+      flushPara(); flushList();
+      elements.push(
+        <h2 key={key++} className="text-base font-medium tracking-wider mt-12 mb-5 pt-8 border-t border-gray-100">
+          <InlineText text={line.slice(3)} />
+        </h2>
+      );
       continue;
     }
     if (line.startsWith('### ')) {
-      flushPara(); closeList();
-      html.push(`<h3>${processInline(line.slice(4))}</h3>`);
+      flushPara(); flushList();
+      elements.push(
+        <h3 key={key++} className="text-sm font-medium tracking-wider mt-6 mb-3">
+          <InlineText text={line.slice(4)} />
+        </h3>
+      );
       continue;
     }
     if (line.startsWith('- ') || line.startsWith('* ')) {
-      flushPara(); openList();
-      html.push(`<li>${processInline(line.slice(2))}</li>`);
+      flushPara();
+      listItems.push(line.slice(2));
       continue;
     }
-    if (trimmed === '') {
-      flushPara(); closeList();
+    if (line.trim() === '') {
+      flushPara(); flushList();
       continue;
     }
-    closeList();
-    paraLines.push(processInline(line));
+    flushList();
+    paraLines.push(line);
   }
-  flushPara(); closeList();
+  flushPara(); flushList();
 
-  return html.join('\n');
+  return elements;
 }
 
 export default function InfoPage({ slug }: InfoPageProps) {
@@ -95,9 +167,23 @@ export default function InfoPage({ slug }: InfoPageProps) {
     setError(false);
     setContent('');
     fetch(config.file)
-      .then(res => { if (!res.ok) throw new Error(); return res.text(); })
-      .then(text => { setContent(text); setLoading(false); })
-      .catch(() => { setError(true); setLoading(false); });
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      })
+      .then(text => {
+        // index.html が返ってきた場合（SPAリライトのバグ）を検出
+        if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+          throw new Error('HTML returned instead of markdown');
+        }
+        setContent(text);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('InfoPage fetch error:', err);
+        setError(true);
+        setLoading(false);
+      });
   }, [slug]);
 
   return (
@@ -133,10 +219,9 @@ export default function InfoPage({ slug }: InfoPageProps) {
           </div>
         )}
         {!loading && !error && (
-          <div
-            className="prose-info"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-          />
+          <div className="space-y-0">
+            {renderMarkdown(content)}
+          </div>
         )}
       </div>
 
