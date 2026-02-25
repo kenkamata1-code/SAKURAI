@@ -48,41 +48,69 @@ export default function Ambassador() {
       </div>
 
       {/* アンバサダープロフィール */}
-      <div className="max-w-2xl mx-auto px-6 py-20">
-        <div className="flex flex-col items-center text-center">
+      <div className="max-w-5xl mx-auto px-6 py-20">
+        <div className="flex flex-col lg:flex-row gap-16 items-start">
 
-          {/* 丸い顔写真 */}
-          <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 mb-8 flex items-center justify-center">
-            {ambassador.profile_image ? (
-              <img
-                src={ambassador.profile_image}
-                alt={ambassador.name_jp}
-                className="w-full h-full object-cover object-top"
-              />
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-gray-300">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            )}
+          {/* 左：写真エリア */}
+          <div className="w-full lg:w-2/5 flex-shrink-0">
+            <div className="aspect-[3/4] overflow-hidden bg-gray-100">
+              {ambassador.profile_image ? (
+                <img
+                  src={ambassador.profile_image}
+                  alt={ambassador.name_jp}
+                  className="w-full h-full object-cover object-top"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-gray-300">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* 名前 */}
-          <h2 className="text-2xl font-light tracking-[0.15em] mb-1">{ambassador.name_jp}</h2>
-          <p className="text-xs tracking-[0.4em] text-gray-400 mb-3">{ambassador.name_en}</p>
-          <p className="text-[10px] tracking-[0.2em] text-gray-400 mb-4">{ambassador.occupation}</p>
+          {/* 右：テキスト情報 */}
+          <div className="flex-1 pt-2">
+            {/* ラベル */}
+            <p className="text-[10px] tracking-[0.4em] text-gray-400 mb-6">AMBASSADOR</p>
 
-          {/* 基本情報 */}
-          <p className="text-xs text-gray-500 mb-10">
-            {ambassador.birth}（{ambassador.height} / 靴サイズ {ambassador.shoe_size}）　{ambassador.birthplace}
-          </p>
+            {/* 名前 */}
+            <h2 className="text-3xl font-light tracking-[0.15em] mb-1">{ambassador.name_jp}</h2>
+            <p className="text-xs tracking-[0.4em] text-gray-400 mb-2">{ambassador.name_en}</p>
+            <p className="text-[10px] tracking-[0.2em] text-gray-400 mb-10">{ambassador.occupation}</p>
 
-          {/* 区切り線 */}
-          <div className="w-12 h-px bg-gray-200 mb-10" />
+            {/* 区切り線 */}
+            <div className="w-12 h-px bg-gray-200 mb-10" />
 
-          {/* プロフィール文 */}
-          <p className="text-sm text-gray-600 leading-loose">
-            {ambassador.bio}
-          </p>
+            {/* 基本情報テーブル */}
+            <dl className="space-y-3 mb-10">
+              <div className="flex gap-6">
+                <dt className="text-[10px] tracking-[0.2em] text-gray-400 w-20 flex-shrink-0">生年月日</dt>
+                <dd className="text-xs text-gray-600">{ambassador.birth}</dd>
+              </div>
+              <div className="flex gap-6">
+                <dt className="text-[10px] tracking-[0.2em] text-gray-400 w-20 flex-shrink-0">出身</dt>
+                <dd className="text-xs text-gray-600">{ambassador.birthplace}</dd>
+              </div>
+              <div className="flex gap-6">
+                <dt className="text-[10px] tracking-[0.2em] text-gray-400 w-20 flex-shrink-0">身長</dt>
+                <dd className="text-xs text-gray-600">{ambassador.height}</dd>
+              </div>
+              <div className="flex gap-6">
+                <dt className="text-[10px] tracking-[0.2em] text-gray-400 w-20 flex-shrink-0">靴サイズ</dt>
+                <dd className="text-xs text-gray-600">{ambassador.shoe_size}</dd>
+              </div>
+            </dl>
+
+            {/* 区切り線 */}
+            <div className="w-12 h-px bg-gray-200 mb-10" />
+
+            {/* プロフィール文 */}
+            <p className="text-sm text-gray-600 leading-loose">
+              {ambassador.bio}
+            </p>
+          </div>
         </div>
       </div>
 
