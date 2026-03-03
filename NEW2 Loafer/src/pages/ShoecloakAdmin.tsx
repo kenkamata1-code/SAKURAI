@@ -2,25 +2,25 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  Shoe, FootProfile, ShoeCategory, FitFeedback, FootType,
+  Shoe, FootProfile, ShoeCategory, FitFeedback,
   BRANDS, CATEGORY_LABELS, CATEGORY_SIZE_ADJUSTMENT, FIT_FEEDBACK_LABELS,
 } from '../shoecloak/types';
 import {
-  addShoe, deleteShoe, updateShoe, loadFootProfile, saveFootProfile, loadShoes,
+  addShoe, deleteShoe, updateShoe, loadFootProfile, loadShoes,
 } from '../shoecloak/store';
 import { getSizeRecommendation } from '../shoecloak/sizeRecommendation';
 import {
-  Footprints, Plus, Trash2, Camera, Award, TrendingUp,
+  Plus, Trash2,
   MessageCircle, Send, Sparkles, Search, X, ChevronDown,
   Upload, RefreshCw, Check, ShoppingBag, BarChart2,
-  Box, Users, Edit2, DollarSign, Ruler,
+  Box, Users, Edit2, DollarSign,
 } from 'lucide-react';
 
 // ================================================================
 // 定数・型
 // ================================================================
 
-type TabType = 'home' | 'shoecloak' | 'foot-measure' | 'ai-assistant' | 'community';
+type TabType = 'home' | 'shoecloak' | 'ai-assistant' | 'community';
 type ShoeGroup = 'all' | 'formal' | 'casual' | 'sports' | 'other';
 type AiSubTab = 'size-advice' | 'wardrobe-analysis' | 'community-explore';
 
@@ -425,14 +425,35 @@ function BulkAddModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => vo
 // ================================================================
 function HomeView({ shoes, footProfile, onTabChange }: { shoes: Shoe[]; footProfile: FootProfile | null; onTabChange: (t: TabType) => void }) {
   const [showQuickDiag, setShowQuickDiag] = useState(false);
+  const navigate = useNavigate();
   return (
     <div>
       <div className="text-center py-16 border-b border-gray-100 mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-5 leading-tight">あなたの靴、すべて記録。<br />完璧なサイズを見つける。</h1>
         <p className="text-gray-400 text-base mb-10 max-w-xl mx-auto leading-relaxed">SHOECLOAKは、持っているすべての靴を管理し、AI分析で最適なサイズを提案するサービスです。もう二度とサイズ選びで失敗しません。</p>
-        <div className="flex items-center justify-center gap-4">
-          <button onClick={() => onTabChange('shoecloak')} className="bg-gray-900 text-white px-8 py-3.5 hover:bg-gray-700 transition-colors font-medium text-sm">靴を追加する</button>
-          <button onClick={() => setShowQuickDiag(true)} className="border border-gray-300 text-gray-700 px-8 py-3.5 hover:border-gray-900 transition-colors font-medium text-sm">簡易サイズチェック</button>
+
+        {/* ① 無料でサイズ測定をするボタン（大） */}
+        <div className="flex flex-col items-center gap-5 max-w-sm mx-auto">
+          <button
+            onClick={() => setShowQuickDiag(true)}
+            className="w-full bg-gray-900 text-white py-5 px-8 hover:bg-gray-700 transition-colors font-semibold text-base tracking-wide"
+          >
+            無料でサイズ測定をする
+          </button>
+
+          {/* ② ログインボタン + 協力依頼テキスト */}
+          <div className="w-full text-center">
+            <p className="text-xs text-gray-400 leading-relaxed mb-3">
+              現在、AIサイズ診断の精度向上に向けてデータを収集しております。<br />
+              皆様のご協力を心よりお願い申し上げます。
+            </p>
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full border border-gray-300 text-gray-700 py-3.5 px-8 hover:border-gray-900 transition-colors font-medium text-sm"
+            >
+              ログインする
+            </button>
+          </div>
         </div>
       </div>
       <div className="mb-16">
@@ -441,7 +462,7 @@ function HomeView({ shoes, footProfile, onTabChange }: { shoes: Shoe[]; footProf
           {[
             { icon: <ShoppingBag className="w-8 h-8 text-gray-500" strokeWidth={1} />, title: '靴のワードローブ管理', desc: '持っている靴をすべて登録。ブランド、モデル、サイズ、フィット感を記録して、あなただけのデータベースを作成。', action: () => onTabChange('shoecloak') },
             { icon: <Sparkles className="w-8 h-8 text-gray-500" strokeWidth={1} />, title: 'AIサイズ推奨', desc: '過去のデータから学習し、新しい靴を買う時に最適なサイズを提案。ブランドごとのサイズの違いも考慮。', action: () => onTabChange('ai-assistant') },
-            { icon: <BarChart2 className="w-8 h-8 text-gray-500" strokeWidth={1} />, title: '足タイプ分析', desc: '写真1枚で足タイプを自動判定。幅広・細め・甲高など、あなたの足の特徴に合ったブランドを提案。', action: () => onTabChange('foot-measure') },
+            { icon: <BarChart2 className="w-8 h-8 text-gray-500" strokeWidth={1} />, title: 'ワードローブ分析', desc: '登録した靴からブランド別・カテゴリ別のフィット傾向を分析。あなたの足に最適なブランドを見つけましょう。', action: () => onTabChange('ai-assistant') },
           ].map(f => (
             <button key={f.title} onClick={f.action} className="border border-gray-200 p-8 hover:border-gray-900 hover:shadow-sm transition-all text-left group">
               <div className="w-16 h-16 border border-gray-200 flex items-center justify-center mx-auto mb-5 group-hover:border-gray-400 transition-colors">{f.icon}</div>
@@ -508,9 +529,9 @@ function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: 
     <div>
       {/* ── アクションバー ── */}
       <div className="flex items-center justify-between mb-8">
-        <button onClick={() => onTabChange('foot-measure')}
+        <button onClick={() => onTabChange('ai-assistant')}
           className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 hover:border-gray-900 transition-colors text-sm">
-          <Ruler className="w-4 h-4" strokeWidth={1.5} />足のサイズを測定する
+          <Sparkles className="w-4 h-4" strokeWidth={1.5} />AIサイズ診断を使う
         </button>
         <div className="flex items-center gap-3">
           <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 hover:bg-gray-700 transition-colors text-sm font-medium">
@@ -618,87 +639,6 @@ function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: 
   );
 }
 
-// ================================================================
-// ③ 足タイプ診断
-// ================================================================
-function FootMeasurementTab({ footProfile, onProfileUpdate }: { footProfile: FootProfile | null; onProfileUpdate: (p: FootProfile) => void }) {
-  const [step, setStep]         = useState<'setup' | 'upload' | 'result'>('setup');
-  const [defaultSize, setDefaultSize] = useState(footProfile?.default_size?.toString() ?? '');
-  const [photos, setPhotos]     = useState<{ top: File | null; side: File | null }>({ top: null, side: null });
-  const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult]     = useState<{ foot_type: FootType; percentile: number; recommendations: string[] } | null>(null);
-
-  const handleAnalyze = async () => {
-    if (!photos.top && !photos.side) return;
-    setAnalyzing(true);
-    await new Promise(r => setTimeout(r, 2500));
-    const r = { foot_type: 'wide' as FootType, percentile: 18, recommendations: ['New Balance（幅広設計）', 'Asics（日本人向け）', 'Merrell（ワイドフィット）'] };
-    const profile: FootProfile = { foot_type: r.foot_type, default_size: parseFloat(defaultSize) || 26.0, updated_at: new Date().toISOString() };
-    saveFootProfile(profile); onProfileUpdate(profile); setResult(r); setAnalyzing(false); setStep('result');
-  };
-  const handleSaveSize = () => {
-    if (!defaultSize) return;
-    const profile: FootProfile = { foot_type: footProfile?.foot_type ?? 'standard', default_size: parseFloat(defaultSize), updated_at: new Date().toISOString() };
-    saveFootProfile(profile); onProfileUpdate(profile); setStep('upload');
-  };
-
-  if (step === 'result' && result) return (
-    <div className="max-w-2xl mx-auto">
-      <div className="border border-gray-200 rounded-xl p-8">
-        <div className="text-center mb-8"><Award className="w-14 h-14 text-gray-900 mx-auto mb-4" strokeWidth={1} /><h2 className="text-xl font-semibold text-gray-900 mb-1">診断結果</h2></div>
-        <div className="bg-gray-900 text-white p-8 text-center rounded-xl mb-6">
-          <p className="text-xs text-gray-400 mb-3">あなたの足は</p>
-          <h3 className="text-3xl font-bold mb-4">{result.foot_type === 'wide' ? '幅広・甲高タイプ' : result.foot_type === 'narrow' ? '細め・華奢タイプ' : '標準タイプ'}</h3>
-          <div className="flex items-center justify-center gap-2 text-gray-300"><TrendingUp className="w-4 h-4" strokeWidth={1.5} /><span className="text-sm">日本人上位 {result.percentile}%</span></div>
-        </div>
-        <div className="mb-6">
-          <p className="text-xs font-medium text-gray-400 mb-3">おすすめブランド</p>
-          <div className="space-y-2">{result.recommendations.map((b, i) => (<div key={i} className="flex items-center gap-3 border border-gray-100 rounded-lg p-3"><div className="w-6 h-6 bg-gray-900 text-white rounded-full flex items-center justify-center text-xs font-bold">{i + 1}</div><span className="text-sm text-gray-700">{b}</span></div>))}</div>
-        </div>
-        <button onClick={() => { setStep('setup'); setPhotos({ top: null, side: null }); setResult(null); }} className="w-full border border-gray-200 rounded-lg text-gray-600 py-3 hover:border-gray-900 text-sm font-medium transition-colors">再診断する</button>
-      </div>
-    </div>
-  );
-
-  if (step === 'setup') return (
-    <div className="max-w-2xl mx-auto">
-      <div className="border border-gray-200 rounded-xl p-8">
-        <div className="text-center mb-8"><Footprints className="w-12 h-12 text-gray-700 mx-auto mb-4" strokeWidth={1} /><h2 className="text-lg font-semibold text-gray-900 mb-1">足タイプ診断</h2></div>
-        {footProfile && <div className="bg-gray-50 rounded-lg p-4 mb-6 text-sm text-gray-600"><p className="text-xs font-medium text-gray-400 mb-1">現在の登録情報</p><p>通常サイズ: {footProfile.default_size}cm　足タイプ: {footProfile.foot_type === 'wide' ? '幅広' : footProfile.foot_type === 'narrow' ? '細め' : '標準'}</p></div>}
-        <div className="mb-6">
-          <label className="block text-xs font-medium text-gray-500 mb-1.5">普段履いている靴のサイズ (cm) <span className="text-gray-900">*</span></label>
-          <input type="number" step="0.5" min="20" max="35" value={defaultSize} onChange={e => setDefaultSize(e.target.value)} placeholder="26.5" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
-        </div>
-        <button onClick={handleSaveSize} disabled={!defaultSize} className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-700 disabled:opacity-40 text-sm font-medium transition-colors">次へ：写真撮影</button>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="max-w-2xl mx-auto">
-      <div className="border border-gray-200 rounded-xl p-8">
-        <div className="text-center mb-8"><Camera className="w-12 h-12 text-gray-700 mx-auto mb-4" strokeWidth={1} /><h2 className="text-lg font-semibold text-gray-900 mb-1">写真を撮影</h2><p className="text-xs text-gray-400">A4用紙を足元に置いて撮影すると精度が向上します</p></div>
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6"><ul className="text-xs text-blue-700 space-y-1.5"><li>• A4用紙を足元に置き、真上から撮影（スケール基準）</li><li>• 影が入らない明るい場所で撮影してください</li><li>• 上面・側面の2方向で精度が上がります</li></ul></div>
-        <div className="space-y-3 mb-6">
-          {[{ key: 'top' as const, label: '上面撮影', desc: '足を平らな場所に置いて真上から' }, { key: 'side' as const, label: '側面撮影', desc: '足の側面（甲の高さを確認）' }].map(({ key, label, desc }) => (
-            <label key={key} className="block border-2 border-dashed border-gray-200 hover:border-gray-900 rounded-xl cursor-pointer p-5 transition-colors">
-              <div className="flex items-center justify-between">
-                <div><p className="text-sm font-medium text-gray-900 mb-0.5">{label}</p><p className="text-xs text-gray-400">{desc}</p>{photos[key] && <p className="text-xs text-green-600 mt-1">✓ {photos[key]!.name}</p>}</div>
-                <div className="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center"><Upload className="w-5 h-5 text-gray-400" strokeWidth={1.5} /></div>
-              </div>
-              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => setPhotos(p => ({ ...p, [key]: e.target.files?.[0] || null }))} />
-            </label>
-          ))}
-        </div>
-        <button onClick={handleAnalyze} disabled={(!photos.top && !photos.side) || analyzing}
-          className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-700 disabled:opacity-40 text-sm font-medium flex items-center justify-center gap-2 mb-2">
-          {analyzing ? <><RefreshCw className="w-4 h-4 animate-spin" strokeWidth={1.5} />診断中...</> : <><Footprints className="w-4 h-4" strokeWidth={1.5} />足タイプを診断する</>}
-        </button>
-        <button onClick={() => setStep('setup')} className="w-full py-2 text-xs text-gray-400 hover:text-gray-700">← 戻る</button>
-      </div>
-    </div>
-  );
-}
 
 // ================================================================
 // ④ AIアシスタント（Bolt AI Assistant デザイン）
@@ -713,8 +653,25 @@ function AISizeAssistant({ shoes, footProfile }: { shoes: Shoe[]; footProfile: F
   const [consultCategory, setConsultCategory] = useState<ShoeCategory>('sneakers');
   const [showDrop, setShowDrop] = useState(false);
   const [consultResult, setConsultResult] = useState<ReturnType<typeof getSizeRecommendation> | null>(null);
+  const [consultUrl, setConsultUrl] = useState('');
+  const [urlDetectedBrand, setUrlDetectedBrand] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  // URLからブランドを自動検出してフォームに反映
+  const handleUrlChange = (url: string) => {
+    setConsultUrl(url);
+    setConsultResult(null);
+    const detected = BRANDS.find(b => url.toLowerCase().includes(b.name.toLowerCase()));
+    if (detected) {
+      setUrlDetectedBrand(detected.name);
+      setConsultBrand(detected.name);
+      setConsultBrandQuery(detected.name);
+      setShowDrop(false);
+    } else {
+      setUrlDetectedBrand('');
+    }
+  };
 
   const filteredBrands = BRANDS.filter(b => b.name.toLowerCase().includes(consultBrandQuery.toLowerCase()));
 
@@ -791,16 +748,44 @@ function AISizeAssistant({ shoes, footProfile }: { shoes: Shoe[]; footProfile: F
           <div className="p-6">
             <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2"><Search className="w-4 h-4" strokeWidth={1.5} />サイズ相談</h4>
             <div className="space-y-4 mb-4">
-              <div className="relative">
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">ブランド</label>
-                <input type="text" value={consultBrandQuery} onChange={e => { setConsultBrandQuery(e.target.value); setConsultBrand(''); setShowDrop(true); }} onFocus={() => setShowDrop(true)} placeholder="例: Nike"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
-                {showDrop && filteredBrands.length > 0 && !consultBrand && (
-                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
-                    {filteredBrands.map(b => <button key={b.name} onClick={() => { setConsultBrand(b.name); setConsultBrandQuery(b.name); setShowDrop(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{b.name}</button>)}
-                  </div>
+
+              {/* ── 欲しい靴のURL入力 ── */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  欲しい靴のURL
+                  <span className="ml-1.5 text-gray-400 font-normal">（貼り付けるとブランドを自動検出）</span>
+                </label>
+                <input
+                  type="url"
+                  value={consultUrl}
+                  onChange={e => handleUrlChange(e.target.value)}
+                  placeholder="https://www.nike.com/..."
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                />
+                {consultUrl && urlDetectedBrand && (
+                  <p className="text-xs text-green-600 mt-1.5 flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    {urlDetectedBrand} を検出しました
+                  </p>
+                )}
+                {consultUrl && !urlDetectedBrand && (
+                  <p className="text-xs text-gray-400 mt-1.5">ブランドを自動検出できませんでした。下のフォームで直接選択してください。</p>
                 )}
               </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <div className="relative">
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">ブランド</label>
+                  <input type="text" value={consultBrandQuery} onChange={e => { setConsultBrandQuery(e.target.value); setConsultBrand(''); setUrlDetectedBrand(''); setShowDrop(true); }} onFocus={() => setShowDrop(true)} placeholder="例: Nike"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+                  {showDrop && filteredBrands.length > 0 && !consultBrand && (
+                    <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                      {filteredBrands.map(b => <button key={b.name} onClick={() => { setConsultBrand(b.name); setConsultBrandQuery(b.name); setShowDrop(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{b.name}</button>)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">カテゴリ</label>
                 <div className="relative">
@@ -982,7 +967,6 @@ export default function ShoecloakAdmin() {
   const tabs = [
     { key: 'home'         as TabType, label: 'ホーム',      subLabel: 'Home'          },
     { key: 'shoecloak'    as TabType, label: 'Shoe Cloak',  subLabel: 'My Wardrobe'   },
-    { key: 'foot-measure' as TabType, label: '足タイプ診断', subLabel: 'Foot Analysis' },
     { key: 'ai-assistant' as TabType, label: 'AI Assistant',subLabel: 'Size & Analysis'},
     { key: 'community'    as TabType, label: 'Community',   subLabel: 'みんなのワードローブ'},
   ];
@@ -1014,7 +998,6 @@ export default function ShoecloakAdmin() {
 
         {activeTab === 'home'         && <HomeView shoes={shoes} footProfile={footProfile} onTabChange={setActiveTab} />}
         {activeTab === 'shoecloak'    && <ShoeCloakView shoes={shoes} onRefresh={refreshShoes} footProfile={footProfile} onTabChange={setActiveTab} />}
-        {activeTab === 'foot-measure' && <FootMeasurementTab footProfile={footProfile} onProfileUpdate={p => setFootProfile(p)} />}
         {activeTab === 'ai-assistant' && <AISizeAssistant shoes={shoes} footProfile={footProfile} />}
         {activeTab === 'community'    && <CommunityView />}
       </div>
