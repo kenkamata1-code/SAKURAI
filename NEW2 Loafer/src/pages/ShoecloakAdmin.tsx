@@ -16,7 +16,7 @@ import {
 // ================================================================
 // 型
 // ================================================================
-type TabType = 'dashboard' | 'foot-measure' | 'ai-assistant';
+type TabType = 'home' | 'shoecloak' | 'foot-measure' | 'ai-assistant';
 
 interface ChatMessage {
   id: string;
@@ -318,34 +318,17 @@ function QuickDiagModal({ shoes, footProfile, onClose }: QuickDiagModalProps) {
 }
 
 // ================================================================
-// ① トップ画面 — ヒーロー + 主な機能 + ワードロープ一覧
+// ① ホーム — ヒーロー + 主な機能のみ
 // ================================================================
 
-interface TopViewProps {
+interface HomeViewProps {
   shoes: Shoe[];
-  onRefresh: () => void;
   footProfile: FootProfile | null;
   onTabChange: (tab: TabType) => void;
 }
 
-function TopView({ shoes, onRefresh, footProfile, onTabChange }: TopViewProps) {
-  const [showAddForm, setShowAddForm]   = useState(false);
+function HomeView({ shoes, footProfile, onTabChange }: HomeViewProps) {
   const [showQuickDiag, setShowQuickDiag] = useState(false);
-
-  const activeShoes = shoes.filter(s => s.status === 'active');
-
-  const handleDelete = (id: string) => {
-    if (!window.confirm('この靴を削除しますか？')) return;
-    deleteShoe(id);
-    onRefresh();
-  };
-
-  const fitColor = (f: FitFeedback) => {
-    if (f === 'perfect') return 'text-green-500';
-    if (f === 'too_small' || f === 'too_large') return 'text-red-500';
-    if (f === 'slightly_small') return 'text-orange-400';
-    return 'text-blue-400';
-  };
 
   return (
     <div>
@@ -360,14 +343,14 @@ function TopView({ shoes, onRefresh, footProfile, onTabChange }: TopViewProps) {
         </p>
         <div className="flex items-center justify-center gap-4">
           <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-gray-900 text-white px-8 py-3.5 rounded-none hover:bg-gray-700 transition-colors font-medium text-sm"
+            onClick={() => onTabChange('shoecloak')}
+            className="bg-gray-900 text-white px-8 py-3.5 hover:bg-gray-700 transition-colors font-medium text-sm"
           >
             靴を追加する
           </button>
           <button
             onClick={() => setShowQuickDiag(true)}
-            className="border border-gray-300 text-gray-700 px-8 py-3.5 rounded-none hover:border-gray-900 transition-colors font-medium text-sm"
+            className="border border-gray-300 text-gray-700 px-8 py-3.5 hover:border-gray-900 transition-colors font-medium text-sm"
           >
             簡易サイズチェック
           </button>
@@ -383,7 +366,7 @@ function TopView({ shoes, onRefresh, footProfile, onTabChange }: TopViewProps) {
               icon: <ShoppingBag className="w-8 h-8 text-gray-500" strokeWidth={1} />,
               title: '靴のワードローブ管理',
               desc:  '持っている靴をすべて登録。ブランド、モデル、サイズ、フィット感を記録して、あなただけのデータベースを作成。',
-              action: () => setShowAddForm(true),
+              action: () => onTabChange('shoecloak'),
             },
             {
               icon: <Sparkles className="w-8 h-8 text-gray-500" strokeWidth={1} />,
@@ -413,138 +396,186 @@ function TopView({ shoes, onRefresh, footProfile, onTabChange }: TopViewProps) {
         </div>
       </div>
 
-      {/* ── ワードローブ一覧 ── */}
+      {/* ── ワードローブのイメージ（サンプル） ── */}
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {activeShoes.length > 0 ? 'ワードローブ' : 'ワードローブのイメージ'}
-            </h2>
-            {activeShoes.length > 0 && (
-              <p className="text-sm text-gray-400 mt-1">
-                登録靴数: {activeShoes.length}足
-                {footProfile ? `｜通常サイズ: ${footProfile.default_size}cm` : ''}
-              </p>
-            )}
-          </div>
-          {activeShoes.length > 0 && (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 border border-gray-200 px-4 py-2 hover:border-gray-900 transition-colors"
-            >
-              <Plus className="w-4 h-4" strokeWidth={1.5} />
-              追加
-            </button>
-          )}
-        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">ワードローブのイメージ</h2>
+        <p className="text-sm text-gray-400 mb-6">実際のユーザーのシュークローク例（サンプル）</p>
 
-        {/* サンプルまたは実データ */}
-        {activeShoes.length === 0 ? (
-          /* サンプル表示（Boltのワードローブイメージをそのまま再現） */
-          <>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
-                <ShoppingBag className="w-4 h-4 text-blue-500" strokeWidth={1.5} />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900">サンプルユーザー</p>
-                <p className="text-xs text-gray-400">登録靴数: 4足 ｜ 通常サイズ: 27.5cm</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {[
-                { brand: 'Nike',        model: 'Air Max 90',       cat: 'スニーカー',   size: 27.5, fit: 'perfect'        as FitFeedback, fitLabel: 'ぴったり' },
-                { brand: 'Adidas',      model: 'Ultraboost 22',    cat: 'ランニング',   size: 28.0, fit: 'slightly_large'  as FitFeedback, fitLabel: 'ゆったり' },
-                { brand: 'New Balance', model: '992',               cat: 'スニーカー',   size: 27.5, fit: 'perfect'        as FitFeedback, fitLabel: 'ぴったり' },
-                { brand: 'Converse',    model: 'Chuck Taylor All Star', cat: 'カジュアル', size: 27.0, fit: 'too_small'    as FitFeedback, fitLabel: 'きつめ'   },
-              ].map(s => (
-                <div key={s.brand} className="border border-gray-200 rounded-xl p-5">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <p className="font-bold text-gray-900">{s.brand}</p>
-                      <p className="text-sm text-gray-400">{s.model}</p>
-                    </div>
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{s.cat}</span>
-                  </div>
-                  <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">サイズ</span>
-                      <span className="font-semibold text-gray-900">{s.size}cm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">フィット感</span>
-                      <span className={`font-semibold ${fitColor(s.fit)}`}>{s.fitLabel}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 flex items-start gap-3">
-              <span className="text-lg">💡</span>
-              <p className="text-sm text-blue-700 leading-relaxed">
-                <span className="font-semibold">登録すると...</span> あなたも同じように靴を管理できます。
-                ブランドごとのサイズの違いや、フィット感の傾向が一目でわかります。
-              </p>
-            </div>
-          </>
-        ) : (
-          /* 実データカード */
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {activeShoes.map(shoe => (
-              <div key={shoe.id} className="border border-gray-200 rounded-xl p-5 hover:border-gray-300 transition-colors">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <p className="font-bold text-gray-900">{shoe.brand}</p>
-                    {shoe.model && <p className="text-sm text-gray-400">{shoe.model}</p>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
-                      {CATEGORY_LABELS[shoe.category]}
-                    </span>
-                    <button
-                      onClick={() => handleDelete(shoe.id)}
-                      className="text-gray-200 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" strokeWidth={1.5} />
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">サイズ</span>
-                    <span className="font-semibold text-gray-900">{shoe.size}cm</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">フィット感</span>
-                    <span className={`font-semibold ${fitColor(shoe.fit_feedback)}`}>
-                      {FIT_FEEDBACK_LABELS[shoe.fit_feedback]}
-                    </span>
-                  </div>
-                  {shoe.purchase_date && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">購入日</span>
-                      <span className="text-gray-600">{shoe.purchase_date}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
+            <ShoppingBag className="w-4 h-4 text-blue-500" strokeWidth={1.5} />
           </div>
-        )}
+          <div>
+            <p className="font-semibold text-gray-900">サンプルユーザー</p>
+            <p className="text-xs text-gray-400">登録靴数: 4足 ｜ 通常サイズ: 27.5cm</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {[
+            { brand: 'Nike',        model: 'Air Max 90',           cat: 'スニーカー', size: 27.5, fit: 'perfect'       as FitFeedback, fitLabel: 'ぴったり' },
+            { brand: 'Adidas',      model: 'Ultraboost 22',        cat: 'ランニング', size: 28.0, fit: 'slightly_large' as FitFeedback, fitLabel: 'ゆったり' },
+            { brand: 'New Balance', model: '992',                   cat: 'スニーカー', size: 27.5, fit: 'perfect'       as FitFeedback, fitLabel: 'ぴったり' },
+            { brand: 'Converse',    model: 'Chuck Taylor All Star', cat: 'カジュアル', size: 27.0, fit: 'too_small'     as FitFeedback, fitLabel: 'きつめ'   },
+          ].map(s => (
+            <div key={s.brand} className="border border-gray-200 rounded-xl p-5">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <p className="font-bold text-gray-900">{s.brand}</p>
+                  <p className="text-sm text-gray-400">{s.model}</p>
+                </div>
+                <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{s.cat}</span>
+              </div>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">サイズ</span>
+                  <span className="font-semibold text-gray-900">{s.size}cm</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">フィット感</span>
+                  <span className={`font-semibold ${
+                    s.fit === 'perfect' ? 'text-green-500' :
+                    s.fit === 'too_small' ? 'text-orange-500' :
+                    s.fit === 'slightly_large' ? 'text-blue-400' : 'text-red-500'
+                  }`}>{s.fitLabel}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 flex items-start gap-3">
+          <span className="text-lg">💡</span>
+          <p className="text-sm text-blue-700 leading-relaxed">
+            <span className="font-semibold">登録すると...</span> あなたも同じように靴を管理できます。
+            ブランドごとのサイズの違いや、フィット感の傾向が一目でわかります。
+          </p>
+        </div>
       </div>
 
-      {/* モーダル */}
-      {showAddForm && (
-        <AddShoeModal
-          onClose={() => setShowAddForm(false)}
-          onAdd={() => { onRefresh(); setShowAddForm(false); }}
-        />
-      )}
       {showQuickDiag && (
         <QuickDiagModal
           shoes={shoes}
           footProfile={footProfile}
           onClose={() => setShowQuickDiag(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ================================================================
+// ② Shoe Cloak — 靴の管理（ワードローブ）
+// ================================================================
+
+interface ShoeCloakViewProps {
+  shoes: Shoe[];
+  onRefresh: () => void;
+  footProfile: FootProfile | null;
+}
+
+function ShoeCloakView({ shoes, onRefresh, footProfile }: ShoeCloakViewProps) {
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  const activeShoes = shoes.filter(s => s.status === 'active');
+
+  const handleDelete = (id: string) => {
+    if (!window.confirm('この靴を削除しますか？')) return;
+    deleteShoe(id);
+    onRefresh();
+  };
+
+  const fitColor = (f: FitFeedback) => {
+    if (f === 'perfect') return 'text-green-500';
+    if (f === 'too_small' || f === 'too_large') return 'text-red-500';
+    if (f === 'slightly_small') return 'text-orange-400';
+    return 'text-blue-400';
+  };
+
+  return (
+    <div>
+      {/* ヘッダー */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Shoe Cloak</h2>
+          <p className="text-sm text-gray-400 mt-1">
+            登録靴数: {activeShoes.length}足
+            {footProfile ? `　｜　通常サイズ: ${footProfile.default_size}cm` : '　｜　足タイプ: 未診断'}
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 hover:bg-gray-700 transition-colors text-sm font-medium"
+        >
+          <Plus className="w-4 h-4" strokeWidth={2} />
+          靴を追加
+        </button>
+      </div>
+
+      {/* 靴一覧 */}
+      {activeShoes.length === 0 ? (
+        <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-xl">
+          <ShoppingBag className="w-14 h-14 text-gray-200 mx-auto mb-4" strokeWidth={1} />
+          <p className="text-gray-400 mb-6">まだ靴が登録されていません</p>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-gray-900 text-white px-6 py-2.5 hover:bg-gray-700 transition-colors text-sm font-medium"
+          >
+            最初の1足を追加する
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {activeShoes.map(shoe => (
+            <div key={shoe.id} className="border border-gray-200 rounded-xl p-5 hover:border-gray-300 transition-colors">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <p className="font-bold text-gray-900">{shoe.brand}</p>
+                  {shoe.model && <p className="text-sm text-gray-400">{shoe.model}</p>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
+                    {CATEGORY_LABELS[shoe.category]}
+                  </span>
+                  <button
+                    onClick={() => handleDelete(shoe.id)}
+                    className="text-gray-200 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" strokeWidth={1.5} />
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">サイズ</span>
+                  <span className="font-semibold text-gray-900">{shoe.size}cm</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">フィット感</span>
+                  <span className={`font-semibold ${fitColor(shoe.fit_feedback)}`}>
+                    {FIT_FEEDBACK_LABELS[shoe.fit_feedback]}
+                  </span>
+                </div>
+                {shoe.purchase_date && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">購入日</span>
+                    <span className="text-gray-600">{shoe.purchase_date}</span>
+                  </div>
+                )}
+                {shoe.notes && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">メモ</span>
+                    <span className="text-gray-600 text-xs">{shoe.notes}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAddForm && (
+        <AddShoeModal
+          onClose={() => setShowAddForm(false)}
+          onAdd={() => { onRefresh(); setShowAddForm(false); }}
         />
       )}
     </div>
@@ -1087,7 +1118,7 @@ function AISizeAssistant({ shoes, footProfile }: AISizeAssistantProps) {
 export default function ShoecloakAdmin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate    = useNavigate();
-  const [activeTab, setActiveTab]   = useState<TabType>('dashboard');
+  const [activeTab, setActiveTab]   = useState<TabType>('home');
   const [shoes, setShoes]           = useState<Shoe[]>([]);
   const [footProfile, setFootProfile] = useState<FootProfile | null>(null);
 
@@ -1103,7 +1134,8 @@ export default function ShoecloakAdmin() {
   const handleFootProfileUpdate = (p: FootProfile) => setFootProfile(p);
 
   const tabs: { key: TabType; label: string; subLabel: string }[] = [
-    { key: 'dashboard',    label: 'ホーム',        subLabel: 'Home'          },
+    { key: 'home',         label: 'ホーム',        subLabel: 'Home'          },
+    { key: 'shoecloak',    label: 'Shoe Cloak',    subLabel: 'My Wardrobe'   },
     { key: 'foot-measure', label: '足タイプ診断',   subLabel: 'Foot Analysis' },
     { key: 'ai-assistant', label: 'AIサイズ相談',   subLabel: 'Size Assistant'},
   ];
@@ -1148,12 +1180,18 @@ export default function ShoecloakAdmin() {
         </div>
 
         {/* タブコンテンツ */}
-        {activeTab === 'dashboard' && (
-          <TopView
+        {activeTab === 'home' && (
+          <HomeView
+            shoes={shoes}
+            footProfile={footProfile}
+            onTabChange={setActiveTab}
+          />
+        )}
+        {activeTab === 'shoecloak' && (
+          <ShoeCloakView
             shoes={shoes}
             onRefresh={refreshShoes}
             footProfile={footProfile}
-            onTabChange={setActiveTab}
           />
         )}
         {activeTab === 'foot-measure' && (
