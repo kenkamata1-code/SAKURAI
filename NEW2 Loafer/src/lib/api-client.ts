@@ -173,6 +173,34 @@ export interface Profile {
   updated_at: string;
 }
 
+// ==================== 測定関連の型定義 ====================
+
+export type MeasurementSessionStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type FootType = 'narrow' | 'standard' | 'wide';
+
+export interface MeasurementResult {
+  foot_type: FootType;
+  foot_length_cm: number | null;
+  foot_width_cm: number | null;
+  percentile: number;
+  recommended_brands: string[];
+  advice: string;
+  photo_top_url: string | null;
+  photo_side_url: string | null;
+  gemini_comment: string | null;
+  confidence: number;
+}
+
+export interface MeasurementSession {
+  id: string;
+  user_email: string;
+  user_name: string;
+  status: MeasurementSessionStatus;
+  created_at: string;
+  completed_at: string | null;
+  result?: MeasurementResult;
+}
+
 // ==================== API クライアント ====================
 
 export const api = {
@@ -635,6 +663,73 @@ export const api = {
         body: JSON.stringify({ filename, contentType, folder }),
       });
       if (!res.ok) throw new Error('Failed to get upload URL');
+      return res.json();
+    },
+  },
+
+    // ==================== 測定管理（ライダー機能） ====================
+  // TODO: バックエンドLambda関数実装後にモックを本番APIに差し替え
+
+  measurement: {
+    // セッション一覧取得
+    // GET /admin/measurement/sessions
+    async listSessions(): Promise<MeasurementSession[]> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/measurement/sessions`);
+      if (!res.ok) throw new Error('Failed to fetch measurement sessions');
+      return res.json();
+    },
+
+    // セッション作成
+    // POST /admin/measurement/sessions
+    async createSession(data: { user_email: string; user_name: string }): Promise<MeasurementSession> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/measurement/sessions`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to create measurement session');
+      return res.json();
+    },
+
+    // セッション詳細取得
+    // GET /admin/measurement/sessions/{id}
+    async getSession(id: string): Promise<MeasurementSession> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/measurement/sessions/${id}`);
+      if (!res.ok) throw new Error('Failed to fetch measurement session');
+      return res.json();
+    },
+
+    // 足写真をアップロードして解析を実行
+    // POST /admin/measurement/sessions/{id}/analyze
+    async analyzeSession(id: string, data: {
+      photo_top_url?: string;
+      photo_side_url?: string;
+    }): Promise<MeasurementResult> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/measurement/sessions/${id}/analyze`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to analyze measurement session');
+      return res.json();
+    },
+
+    // Gemini AI解析を実行
+    // POST /admin/measurement/sessions/{id}/gemini-analyze
+    async geminiAnalyze(id: string): Promise<{ gemini_comment: string }> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/measurement/sessions/${id}/gemini-analyze`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('Failed to run Gemini analysis');
+      return res.json();
+    },
+
+    // セッションのステータスを更新
+    // PUT /admin/measurement/sessions/{id}/status
+    async updateSessionStatus(id: string, status: MeasurementSessionStatus): Promise<MeasurementSession> {
+      const res = await authFetch(`${apiConfig.baseUrl}/admin/measurement/sessions/${id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error('Failed to update session status');
       return res.json();
     },
   },
