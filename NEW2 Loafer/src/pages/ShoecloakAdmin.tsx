@@ -35,6 +35,92 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+// 画像をリサイズ・オプションで白背景処理して圧縮JPEG base64を返す
+async function processImage(file: File, applyWhiteBg: boolean, maxPx = 900): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width: w, height: h } = img;
+      if (w > maxPx || h > maxPx) {
+        if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else        { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('canvas error')); return; }
+      if (applyWhiteBg) { ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h); }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+// 今日の日付を YYYY-MM-DD 形式で返す
+const TODAY = new Date().toISOString().split('T')[0];
+
+// ================================================================
+// AI チケット管理（1日20チケット）
+// ================================================================
+const AI_TICKET_KEY  = 'shoecloak_ai_tickets';
+const AI_MAX_TICKETS = 20;
+
+function getAiTicketState(): { date: string; used: number } {
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const raw = localStorage.getItem(AI_TICKET_KEY);
+    const stored = raw ? JSON.parse(raw) : null;
+    if (stored?.date === today) return stored;
+  } catch { /* ignore */ }
+  return { date: today, used: 0 };
+}
+
+function consumeAiTicket(): boolean {
+  const state = getAiTicketState();
+  if (state.used >= AI_MAX_TICKETS) return false;
+  localStorage.setItem(AI_TICKET_KEY, JSON.stringify({ ...state, used: state.used + 1 }));
+  return true;
+}
+
+function remainingAiTickets(): number {
+  const state = getAiTicketState();
+  return AI_MAX_TICKETS - state.used;
+}
+
+// ================================================================
+// Gemini AI 呼び出し
+// ================================================================
+const GEMINI_KEY = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY) ?? '';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+
+async function callGemini(systemContext: string, userMessage: string): Promise<string> {
+  if (!GEMINI_KEY || GEMINI_KEY === 'YOUR_GEMINI_API_KEY_HERE') return '';
+  try {
+    const prompt = `${systemContext}\n\nユーザーの質問: ${userMessage}\n\n回答は必ず5行以内・日本語で、具体的かつ親しみやすいトーンで答えてください。`;
+    const res = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 350, temperature: 0.75 },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_ONLY_HIGH' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_ONLY_HIGH' },
+        ],
+      }),
+    });
+    if (!res.ok) return '';
+    const data = await res.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
 // デバイス判定
 const UA = typeof navigator !== 'undefined' ? navigator.userAgent : '';
 const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(UA);
@@ -227,12 +313,13 @@ function AddShoeModal({ onClose, onAdd, editShoe }: { onClose: () => void; onAdd
     sizeInput:     editShoe?.size?.toString() ?? '',
     sizeUnit:      'cm' as SizeUnit,
     fit_feedback:  (editShoe?.fit_feedback ?? 'perfect') as FitFeedback,
-    purchase_date: editShoe?.purchase_date ?? '',
+    purchase_date: editShoe?.purchase_date ?? TODAY,   // デフォルト = 本日
     notes:         editShoe?.notes ?? '',
   });
-  const [photos, setPhotos] = useState<string[]>(editShoe?.photos ?? []);
-  const [showDrop, setShowDrop] = useState(false);
-  const [error, setError]       = useState('');
+  const [photos, setPhotos]       = useState<string[]>(editShoe?.photos ?? []);
+  const [whiteBg, setWhiteBg]     = useState(true);   // 白背景デフォルトON
+  const [showDrop, setShowDrop]   = useState(false);
+  const [error, setError]         = useState('');
   const [canAddCustom, setCanAddCustom] = useState(false);
 
   const filteredBrands = allBrands.filter(b => b.toLowerCase().includes(form.brandQuery.toLowerCase()));
@@ -256,9 +343,18 @@ function AddShoeModal({ onClose, onAdd, editShoe }: { onClose: () => void; onAdd
 
   const handlePhotoAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || photos.length >= 3) return;
-    const b64 = await fileToBase64(file);
-    setPhotos(p => [...p, b64]);
+    if (!file) return;
+    e.target.value = '';   // リセット（同じファイルを再選択できるよう）
+    if (photos.length >= 3) { setError('写真は最大3枚です'); return; }
+    setError('');
+    try {
+      const processed = await processImage(file, whiteBg);
+      setPhotos(p => [...p, processed]);
+    } catch {
+      // フォールバック: 圧縮なしで保存
+      const b64 = await fileToBase64(file);
+      setPhotos(p => [...p, b64]);
+    }
   };
 
   const handleSubmit = () => {
@@ -275,8 +371,12 @@ function AddShoeModal({ onClose, onAdd, editShoe }: { onClose: () => void; onAdd
       photos:        photos.length > 0 ? photos : undefined,
       status:        'active' as const,
     };
-    if (editShoe) { updateShoe(editShoe.id, data); } else { addShoe(data); }
-    onAdd();
+    try {
+      if (editShoe) { updateShoe(editShoe.id, data); } else { addShoe(data); }
+      onAdd();
+    } catch {
+      setError('保存に失敗しました。写真のファイルサイズを小さくしてお試しください。');
+    }
   };
 
   // サイズ入力の表示値（単位切り替え時に再計算）
@@ -394,44 +494,67 @@ function AddShoeModal({ onClose, onAdd, editShoe }: { onClose: () => void; onAdd
             </div>
           </div>
 
-          {/* 写真（最大3枚） */}
+          {/* 写真（最大3枚）+ 白背景オプション */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Photos / 写真（最大3枚）</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Photos / 写真（最大3枚）</label>
+              {/* 白背景チェックボックス */}
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={whiteBg}
+                  onChange={e => setWhiteBg(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded accent-indigo-600"
+                />
+                <span className="text-xs text-gray-600">背景を白にする</span>
+              </label>
+            </div>
             <div className="flex gap-2">
               {[0, 1, 2].map(i => (
-                <div key={i} className="relative w-24 h-24 border-2 border-dashed border-gray-200 rounded-lg overflow-hidden">
+                <div key={i} className="relative w-28 h-28 border-2 border-dashed border-gray-200 rounded-lg overflow-hidden bg-white">
                   {photos[i] ? (
                     <>
-                      <img src={photos[i]} className="w-full h-full object-cover" alt={`photo${i+1}`} />
+                      <img src={photos[i]} className="w-full h-full object-contain" alt={`photo${i+1}`} />
                       <button onClick={() => setPhotos(p => p.filter((_, idx) => idx !== i))}
-                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center">
+                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-500 transition-colors">
                         <X className="w-3 h-3" strokeWidth={2} />
                       </button>
                     </>
                   ) : (
                     <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
                       <Upload className="w-5 h-5 text-gray-300 mb-1" strokeWidth={1.5} />
-                      <span className="text-xs text-gray-300">{i + 1}</span>
+                      <span className="text-xs text-gray-300">写真 {i + 1}</span>
                       <input type="file" accept="image/*" className="hidden" onChange={handlePhotoAdd} />
                     </label>
                   )}
                 </div>
               ))}
+              <div className="flex-1 flex items-center">
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  JPG / PNG<br />
+                  {whiteBg ? '✓ 背景を自動で白塗り' : '背景処理なし'}
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* 購入日・メモ */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Purchase Date</label>
-              <input type="date" value={form.purchase_date} onChange={e => setForm(p => ({ ...p, purchase_date: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Notes / メモ</label>
-              <input type="text" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="着心地など"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
-            </div>
+          {/* 購入日 */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Purchase Date / 購入日</label>
+            <input type="date" value={form.purchase_date} onChange={e => setForm(p => ({ ...p, purchase_date: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+          </div>
+
+          {/* メモ（大きめtextarea） */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Notes / 詳細メモ</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+              placeholder="着心地・フィット感・合わせ方のコツ・おすすめのシーンなど、気づいたことを自由に記録してください"
+              rows={4}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm resize-y leading-relaxed"
+            />
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
@@ -1133,20 +1256,44 @@ function ShoeCloakView({ shoes, onRefresh, footProfile: _footProfile, onTabChang
 
   return (
     <div>
-      {/* ── 足のサイズ測定バナー（アクセントカラー） ── */}
-      <div className="flex items-stretch gap-0 border-2 border-emerald-500 mb-8 overflow-hidden rounded-xl shadow-sm shadow-emerald-100">
-        <button
-          onClick={() => setShowMeasurement(true)}
-          className="flex items-center gap-3 bg-emerald-600 text-white px-7 py-5 hover:bg-emerald-700 transition-colors font-bold text-sm flex-shrink-0"
-        >
-          <Ruler className="w-5 h-5" strokeWidth={1.5} />
-          <span>足のサイズを<br />測定する</span>
-        </button>
-        <div className="flex-1 px-6 py-4 flex flex-col justify-center bg-emerald-50">
-          <p className="font-semibold text-emerald-900 text-sm">足の実測データを登録するとサイズ診断の精度が上がります</p>
-          <p className="text-xs text-emerald-700 mt-1">左右の足長・足囲・足幅・甲の高さ・かかと幅を記録</p>
+      {/* ── 足のサイズ測定バナー（全体クリッカブル） ── */}
+      <button
+        onClick={() => setShowMeasurement(true)}
+        className="w-full mb-8 group relative overflow-hidden rounded-2xl border-2 border-emerald-500 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 active:scale-[0.99] transition-all duration-150 shadow-md shadow-emerald-200 text-left"
+      >
+        {/* 背景装飾 */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <Ruler className="absolute top-1/2 right-6 w-24 h-24 text-white -translate-y-1/2 rotate-12" strokeWidth={0.5} />
         </div>
-      </div>
+        <div className="relative flex items-center gap-0">
+          {/* 左: アイコン + メインテキスト */}
+          <div className="flex items-center gap-4 px-7 py-5 flex-shrink-0">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
+              <Ruler className="w-6 h-6 text-white" strokeWidth={2} />
+            </div>
+            <div>
+              <p className="font-black text-white text-base leading-tight">足のサイズを測定する</p>
+              <p className="text-emerald-100 text-xs mt-0.5 font-medium">Measure Your Foot Size →</p>
+            </div>
+          </div>
+          {/* 区切り線 */}
+          <div className="w-px self-stretch bg-white/20 flex-shrink-0" />
+          {/* 右: 説明テキスト */}
+          <div className="flex-1 px-6 py-5">
+            <p className="font-semibold text-white text-sm">測定すると、あなたの足の特徴もわかります</p>
+            <p className="text-emerald-100 text-xs mt-1 leading-relaxed">
+              足長・足幅・甲の高さ・かかと幅を記録 → 足タイプ・アーチ・ワイズが判明<br/>
+              <span className="text-white/70">サイズ診断の精度が大幅アップします</span>
+            </p>
+          </div>
+          {/* 右端: クリック促進矢印 */}
+          <div className="px-5 flex-shrink-0">
+            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center group-hover:bg-white/30 group-hover:translate-x-1 transition-all">
+              <ChevronRight className="w-5 h-5 text-white" strokeWidth={2.5} />
+            </div>
+          </div>
+        </div>
+      </button>
 
       {/* ── タイトル + サイズ単位 + 靴を追加ボタン ── */}
       <div className="flex items-end justify-between mb-6">
@@ -1293,6 +1440,7 @@ function AISizeAssistant({ shoes, footProfile }: { shoes: Shoe[]; footProfile: F
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput]       = useState('');
   const [loading, setLoading]   = useState(false);
+  const [tickets, setTickets]   = useState(() => remainingAiTickets());
 
   const [consultBrand, setConsultBrand]         = useState('');
   const [consultBrandQuery, setConsultBrandQuery] = useState('');
@@ -1303,12 +1451,25 @@ function AISizeAssistant({ shoes, footProfile }: { shoes: Shoe[]; footProfile: F
   const [urlDetectedBrand, setUrlDetectedBrand] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // スクロール修正: メッセージが追加された時だけスクロール（block: nearest でページ全体スクロールを防止）
   useEffect(() => {
     if (messages.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [messages]);
+
+  // Gemini 用コンテキスト文字列
+  const buildSystemContext = () => {
+    const bc = shoes.reduce((a: Record<string, number>, s) => { a[s.brand] = (a[s.brand] || 0) + 1; return a; }, {});
+    const topBrands = Object.entries(bc).sort(([,a],[,b]) => b-a).slice(0,3).map(([b]) => b).join('・') || 'なし';
+    const ftLabel = footProfile?.foot_type === 'wide' ? '幅広・甲高' : footProfile?.foot_type === 'narrow' ? '細め・スリム' : '標準';
+    return `あなたはSHOE CLOAKという靴管理・AIサイズ診断サービスのアシスタントです。
+【ユーザー情報】
+- 登録靴数: ${shoes.length}足
+- よく持つブランド: ${topBrands}
+- 足タイプ: ${footProfile ? ftLabel : '未登録'}
+- 通常サイズ: ${footProfile?.default_size ?? '未登録'}cm
+シューズのサイズ選び・ブランドのサイズ感・フィット感・お手入れなどの質問に5行以内で具体的に答えてください。`;
+  };
 
   const handleUrlChange = (url: string) => {
     setConsultUrl(url);
@@ -1334,30 +1495,53 @@ function AISizeAssistant({ shoes, footProfile }: { shoes: Shoe[]; footProfile: F
   const handleSend = async (msg?: string) => {
     const text = msg ?? input;
     if (!text.trim() || loading) return;
+
+    // チケット確認
+    if (!consumeAiTicket()) {
+      setMessages(p => [...p,
+        { id: Date.now().toString(), role: 'user', content: text },
+        { id: (Date.now()+1).toString(), role: 'assistant', content: '本日のAI利用チケット（20枚）を使い切りました。\n明日0時にリセットされます。引き続きご利用いただきありがとうございます！' },
+      ]);
+      if (!msg) setInput('');
+      return;
+    }
+    setTickets(remainingAiTickets());
+
     setMessages(p => [...p, { id: Date.now().toString(), role: 'user', content: text }]);
     if (!msg) setInput('');
     setLoading(true);
-    await new Promise(r => setTimeout(r, 800));
-    const lower = text.toLowerCase();
-    let reply = '';
-    if (lower.includes('サイズ') || lower.includes('cm')) {
-      reply = `通常サイズは ${footProfile?.default_size ?? 'N/A'}cm です。下の「サイズ相談」で特定ブランドの推奨サイズを確認できます。`;
-    } else if (lower.includes('ブランド')) {
-      const bc = shoes.reduce((a: Record<string, number>, s) => { a[s.brand] = (a[s.brand] || 0) + 1; return a; }, {});
-      const top = Object.entries(bc).sort(([, a], [, b]) => b - a).slice(0, 3).map(([b]) => b);
-      reply = top.length > 0 ? `よく履くブランド: ${top.join('、')}。` : 'まだ靴データがありません。「Shoe Cloak」タブで追加してください。';
-    } else if (lower.includes('足') || lower.includes('タイプ')) {
-      reply = footProfile
-        ? `足タイプは「${footProfile.foot_type === 'wide' ? '幅広・甲高' : footProfile.foot_type === 'narrow' ? '細め' : '標準'}」です。`
-        : '足タイプ未登録です。「基礎情報」タブで足の情報を入力してください。';
-    } else if (lower.includes('url') || lower.startsWith('http')) {
-      const detected = BRANDS.find(b => lower.includes(b.name.toLowerCase()));
-      reply = detected
-        ? `URLから ${detected.name} を検出しました。下のサイズ相談フォームで推奨サイズを確認できます。`
-        : '商品URLからブランドを特定できませんでした。サイズ相談フォームで直接ブランドを選択してください。';
+
+    // Gemini API 呼び出し
+    const geminiReply = await callGemini(buildSystemContext(), text);
+
+    let reply: string;
+    if (geminiReply) {
+      reply = geminiReply;
     } else {
-      reply = 'サイズ・ブランド・足タイプ、または商品URLについてお答えできます！';
+      // APIキー未設定時のルールベース fallback
+      const lower = text.toLowerCase();
+      if (lower.includes('サイズ') || lower.includes('cm')) {
+        reply = `通常サイズは ${footProfile?.default_size ?? 'N/A'}cm です。\nブランドによってサイズ感が異なるため、左の「サイズ相談」でブランド別の推奨サイズをご確認ください。\nNIKEはやや小さめ、New Balanceは幅広傾向があります。`;
+      } else if (lower.includes('ブランド')) {
+        const bc = shoes.reduce((a: Record<string, number>, s) => { a[s.brand] = (a[s.brand] || 0) + 1; return a; }, {});
+        const top = Object.entries(bc).sort(([,a],[,b]) => b-a).slice(0,3).map(([b]) => b);
+        reply = top.length > 0
+          ? `よく持つブランドは ${top.join('、')} です。\n足幅や甲の高さによって相性が変わります。詳しくはサイズ相談フォームでご確認ください。`
+          : 'まだ靴データがありません。「Shoe Cloak」タブで靴を追加してください。\n追加後、ブランド別のサイズ傾向を分析できます。';
+      } else if (lower.includes('足') || lower.includes('タイプ')) {
+        reply = footProfile
+          ? `足タイプは「${footProfile.foot_type === 'wide' ? '幅広・甲高' : footProfile.foot_type === 'narrow' ? '細め' : '標準'}」です。\n幅広の方はNew Balance・Asics、細めの方はOn Running・Pumが合いやすいです。`
+          : '足タイプが未登録です。「基礎情報」タブで登録すると、より精度の高い診断が可能になります。';
+      } else if (lower.includes('http') || lower.includes('url')) {
+        const detected = BRANDS.find(b => lower.includes(b.name.toLowerCase()));
+        reply = detected
+          ? `URLから ${detected.name} を検出しました。\n左の「サイズ相談」フォームに自動入力されているので、「サイズを調べる」ボタンを押してください。`
+          : 'URLからブランドを特定できませんでした。左のサイズ相談フォームで直接ブランドを選択してください。';
+      } else {
+        reply = 'ご質問ありがとうございます！\nサイズ選び・ブランドのフィット感・足タイプの特徴・商品URLの解析など、靴に関することなら何でもご相談ください。\nAIキーを設定するとさらに詳しいアドバイスが可能になります。';
+      }
     }
+
     setMessages(p => [...p, { id: (Date.now() + 1).toString(), role: 'assistant', content: reply }]);
     setLoading(false);
   };
@@ -1463,12 +1647,21 @@ function AISizeAssistant({ shoes, footProfile }: { shoes: Shoe[]; footProfile: F
         <div className="flex flex-col">
           {/* ヘッダー */}
           <div className="px-6 py-4 border-b border-indigo-100 bg-indigo-50 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
               <MessageCircle className="w-4 h-4 text-white" strokeWidth={2} />
             </div>
-            <div>
-              <h3 className="font-bold text-gray-900">AIチャット / Free Consultation</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-gray-900">AIチャット / Gemini AI</h3>
               <p className="text-xs text-indigo-700">サイズ・ブランド・URLを自由に質問</p>
+            </div>
+            {/* チケット残数 */}
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0 ${
+              tickets > 5 ? 'bg-indigo-100 text-indigo-700' :
+              tickets > 0 ? 'bg-amber-100 text-amber-700' :
+                            'bg-red-100 text-red-600'
+            }`}>
+              <span>🎫</span>
+              <span>{tickets}/{AI_MAX_TICKETS}</span>
             </div>
           </div>
 
@@ -1768,18 +1961,140 @@ function ProfileView({ onFootProfileUpdate }: { onFootProfileUpdate: (p: FootPro
 }
 
 // ================================================================
-// ⑥ コミュニティ
+// ⑥ コミュニティ（年齢・身長・性別・特徴付きサンプル）
 // ================================================================
+
+interface CommunityUser {
+  initials: string;
+  name: string;
+  age: number;
+  height_cm: number;
+  gender: '男性' | '女性' | 'その他';
+  foot_type: string;
+  size_cm: number;
+  features: string[];   // 足の特徴タグ
+  shoes: { brand: string; model: string; size: string; fit: string; fitColor: string; cat: string }[];
+  ai_comment: string;
+}
+
+const COMMUNITY_SAMPLES: CommunityUser[] = [
+  {
+    initials: 'T.S', name: 'スニーカーコレクター T.S さん', age: 28, height_cm: 175, gender: '男性',
+    foot_type: '標準', size_cm: 27.5,
+    features: ['標準幅（D)', '土踏まずあり', 'かかと細め'],
+    shoes: [
+      { brand: 'NIKE',         model: 'AIR MAX 90',          size: '27.5cm', fit: 'ぴったり',   fitColor: 'bg-emerald-100 text-emerald-700', cat: 'スニーカー' },
+      { brand: 'ADIDAS',       model: 'STAN SMITH',          size: '27.0cm', fit: 'やや大きい', fitColor: 'bg-blue-100 text-blue-700',       cat: 'スニーカー' },
+      { brand: 'NEW BALANCE',  model: '990V6',               size: '27.5cm', fit: 'ぴったり',   fitColor: 'bg-emerald-100 text-emerald-700', cat: 'ランニング' },
+      { brand: 'CONVERSE',     model: 'ALL STAR HI',         size: '28.0cm', fit: 'ぴったり',   fitColor: 'bg-emerald-100 text-emerald-700', cat: 'スニーカー' },
+      { brand: 'VANS',         model: 'OLD SKOOL',           size: '27.5cm', fit: 'やや小さい', fitColor: 'bg-orange-100 text-orange-700',   cat: 'スニーカー' },
+    ],
+    ai_comment: 'NIKEとNEW BALANCEが一致。VANSはハーフサイズUP推奨（細め設計）',
+  },
+  {
+    initials: 'K.M', name: 'ドレスシューズ愛好家 K.M さん', age: 35, height_cm: 170, gender: '男性',
+    foot_type: '細め', size_cm: 26.0,
+    features: ['細め幅（C/D)', '甲低め', 'ギリシャ型トゥ'],
+    shoes: [
+      { brand: "CHURCH'S",     model: 'CONSUL',       size: '7.5 UK', fit: 'ぴったり',   fitColor: 'bg-emerald-100 text-emerald-700',  cat: 'ドレス'     },
+      { brand: 'JOHN LOBB',    model: 'CITY II',      size: '7 UK',   fit: 'きつめ',     fitColor: 'bg-orange-100 text-orange-700',    cat: 'ドレス'     },
+      { brand: 'EDWARD GREEN', model: 'CHELSEA',      size: '7.5 UK', fit: 'ぴったり',   fitColor: 'bg-emerald-100 text-emerald-700',  cat: 'ドレス'     },
+      { brand: "TRICKER'S",    model: 'BOURTON',      size: '7 UK',   fit: 'やや大きめ', fitColor: 'bg-blue-100 text-blue-700',        cat: 'カントリー' },
+      { brand: 'ALDEN',        model: 'INDY BOOT 403',size: '7 US',   fit: 'ぴったり',   fitColor: 'bg-emerald-100 text-emerald-700',  cat: 'ブーツ'     },
+    ],
+    ai_comment: 'JOHN LOBBラスト101は細め設計。7.5 UK推奨（ハーフサイズUP）',
+  },
+  {
+    initials: 'A.K', name: 'ランニング好き A.K さん', age: 31, height_cm: 163, gender: '女性',
+    foot_type: '幅広・甲高', size_cm: 24.5,
+    features: ['幅広（EE)', '甲高め', 'かかと幅広め', 'エジプト型トゥ'],
+    shoes: [
+      { brand: 'NEW BALANCE',  model: 'FRESH FOAM 1080', size: '24.5cm', fit: 'ぴったり',   fitColor: 'bg-emerald-100 text-emerald-700', cat: 'ランニング' },
+      { brand: 'ASICS',        model: 'GEL-NIMBUS 25',   size: '24.5cm', fit: 'ぴったり',   fitColor: 'bg-emerald-100 text-emerald-700', cat: 'ランニング' },
+      { brand: 'HOKA ONE ONE', model: 'CLIFTON 9',       size: '25.0cm', fit: 'やや大きい', fitColor: 'bg-blue-100 text-blue-700',       cat: 'ランニング' },
+      { brand: 'NIKE',         model: 'FREE RUN 5.0',    size: '24.5cm', fit: 'きつめ',     fitColor: 'bg-orange-100 text-orange-700',   cat: 'スニーカー' },
+    ],
+    ai_comment: 'NIKE FREE RUNは幅細め設計。NEW BALANCEのWワイズが最適。',
+  },
+];
+
 function CommunityView() {
   return (
     <div>
-      <div className="flex items-center gap-3 mb-8">
-        <Users className="w-6 h-6 text-gray-600" strokeWidth={1.5} />
-        <h2 className="text-xl font-bold text-gray-900">みんなのShoe Cloak</h2>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <Users className="w-6 h-6 text-amber-600" strokeWidth={1.5} />
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">みんなのShoe Cloak</h2>
+            <p className="text-xs text-gray-400 mt-0.5">他のユーザーのコレクションから参考に</p>
+          </div>
+        </div>
+        <span className="bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-full">
+          {COMMUNITY_SAMPLES.length} 件公開中
+        </span>
       </div>
-      <div className="border border-gray-200 py-24 text-center">
-        <Users className="w-14 h-14 text-gray-200 mx-auto mb-4" strokeWidth={1} />
-        <p className="text-gray-400 text-sm">まだ公開されているShoe Cloakがありません</p>
+
+      {COMMUNITY_SAMPLES.map((u, idx) => (
+        <div key={idx} className="mb-8 border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+          {/* ユーザーヘッダー */}
+          <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-5 flex items-start gap-4">
+            <div className="w-11 h-11 rounded-full bg-amber-500 flex items-center justify-center text-sm font-black flex-shrink-0">
+              {u.initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-base leading-tight">{u.name}</p>
+              {/* 年齢・身長・性別 */}
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-xs text-gray-300">
+                <span>🧑 {u.gender} ・ {u.age}歳</span>
+                <span>📏 身長 {u.height_cm}cm</span>
+                <span>👟 通常サイズ {u.size_cm}cm</span>
+                <span>🦶 足タイプ: {u.foot_type}</span>
+              </div>
+              {/* 足の特徴タグ */}
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {u.features.map(f => (
+                  <span key={f} className="bg-white/15 text-white text-xs px-2 py-0.5 rounded-full font-medium">{f}</span>
+                ))}
+              </div>
+            </div>
+            <span className="flex-shrink-0 bg-amber-500 text-white text-xs px-3 py-1 rounded-full font-bold mt-0.5">公開中</span>
+          </div>
+
+          {/* 靴カードグリッド */}
+          <div className="p-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {u.shoes.map(s => (
+              <div key={s.brand + s.model} className="bg-gray-50 rounded-xl p-3 border border-gray-100 hover:border-gray-300 transition-colors">
+                <p className="font-bold text-gray-900 text-xs tracking-wider truncate">{s.brand}</p>
+                <p className="text-xs text-gray-500 mb-2 truncate">{s.model}</p>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-gray-900 text-sm">{s.size}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.fitColor}`}>{s.fit}</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{s.cat}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* AI診断コメント */}
+          <div className="bg-gradient-to-r from-emerald-50 to-indigo-50 border-t border-gray-100 px-5 py-3 flex items-start gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" strokeWidth={2} />
+            <p className="text-xs text-gray-700 leading-relaxed">
+              <span className="font-bold text-emerald-700">AI診断: </span>{u.ai_comment}
+            </p>
+          </div>
+        </div>
+      ))}
+
+      {/* 参加を促すCTA */}
+      <div className="bg-gradient-to-r from-amber-50 to-indigo-50 border border-amber-200 rounded-2xl px-6 py-5 flex items-start gap-3">
+        <span className="text-2xl flex-shrink-0">🌟</span>
+        <div>
+          <p className="font-bold text-gray-900 mb-1">あなたのShoe Cloakも公開しませんか？</p>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            靴コレクションを公開することで、同じ足タイプ・体型の方のサイズ選びの参考になります。<br />
+            「基礎情報」タブで年齢・身長・足の特徴を登録後、公開設定をONにしてください。
+          </p>
+        </div>
       </div>
     </div>
   );
