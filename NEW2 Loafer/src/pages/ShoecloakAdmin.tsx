@@ -3,26 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Shoe, FootProfile, ShoeCategory, FitFeedback,
+  UserProfile, ArchHeight, PreferredFit,
+  DEFAULT_USER_PROFILE, ARCH_HEIGHT_LABELS, PREFERRED_FIT_LABELS,
   BRANDS, CATEGORY_LABELS, CATEGORY_SIZE_ADJUSTMENT, FIT_FEEDBACK_LABELS,
 } from '../shoecloak/types';
 import {
-  addShoe, deleteShoe, updateShoe, loadFootProfile, loadShoes,
+  addShoe, deleteShoe, updateShoe,
+  loadFootProfile, saveFootProfile,
+  loadShoes, loadUserProfile, saveUserProfile,
 } from '../shoecloak/store';
 import { getSizeRecommendation } from '../shoecloak/sizeRecommendation';
 import {
   Plus, Trash2,
   MessageCircle, Send, Sparkles, Search, X, ChevronDown,
   Upload, RefreshCw, Check, ShoppingBag, BarChart2,
-  Box, Users, Edit2, DollarSign,
+  Box, Users, Edit2, DollarSign, Ruler, User, Globe, Save,
 } from 'lucide-react';
 
 // ================================================================
 // 定数・型
 // ================================================================
 
-type TabType = 'home' | 'shoecloak' | 'ai-assistant' | 'community';
+type TabType = 'home' | 'shoecloak' | 'ai-assistant' | 'community' | 'profile';
 type ShoeGroup = 'all' | 'formal' | 'casual' | 'sports' | 'other';
-type AiSubTab = 'size-advice' | 'wardrobe-analysis' | 'community-explore';
 
 interface ChatMessage { id: string; role: 'user' | 'assistant'; content: string; }
 interface BulkEntry  { brand: string; model: string; size: string; fit_feedback: FitFeedback; photo: File | null; }
@@ -513,7 +516,6 @@ function HomeView({ shoes, footProfile, onTabChange }: { shoes: Shoe[]; footProf
 // ================================================================
 function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: Shoe[]; onRefresh: () => void; footProfile: FootProfile | null; onTabChange: (t: TabType) => void }) {
   const [filterGroup, setFilterGroup] = useState<ShoeGroup>('all');
-  const [showAdd, setShowAdd]         = useState(false);
   const [showBulk, setShowBulk]       = useState(false);
   const [editShoe, setEditShoe]       = useState<Shoe | undefined>(undefined);
 
@@ -525,31 +527,60 @@ function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: 
   const handleSell = (id: string) => { updateShoe(id, { status: 'sold' }); onRefresh(); };
   const handleDelete = (id: string) => { if (!window.confirm('削除しますか？')) return; deleteShoe(id); onRefresh(); };
 
+  const footTypeLabel = footProfile
+    ? footProfile.foot_type === 'wide'   ? '幅広・甲高タイプ'
+    : footProfile.foot_type === 'narrow' ? '細め・スリムタイプ'
+    :                                       '標準タイプ'
+    : null;
+
   return (
     <div>
-      {/* ── アクションバー ── */}
-      <div className="flex items-center justify-between mb-8">
-        <button onClick={() => onTabChange('ai-assistant')}
-          className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 hover:border-gray-900 transition-colors text-sm">
-          <Sparkles className="w-4 h-4" strokeWidth={1.5} />AIサイズ診断を使う
+      {/* ── 足のサイズ測定バナー（目立つ） ── */}
+      <div className="flex items-stretch gap-0 border-2 border-gray-900 mb-8 overflow-hidden">
+        <button
+          onClick={() => onTabChange('profile')}
+          className="flex items-center gap-3 bg-gray-900 text-white px-7 py-5 hover:bg-gray-700 transition-colors font-semibold text-sm flex-shrink-0"
+        >
+          <Ruler className="w-5 h-5" strokeWidth={1.5} />
+          <span>足のサイズを<br />測定・登録する</span>
         </button>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 hover:bg-gray-700 transition-colors text-sm font-medium">
-            <Plus className="w-4 h-4" strokeWidth={2} />靴を追加
-          </button>
-          <button onClick={() => setShowBulk(true)} className="flex items-center gap-2 border border-gray-300 text-gray-700 px-5 py-2.5 hover:border-gray-900 transition-colors text-sm font-medium">
-            <Plus className="w-4 h-4" strokeWidth={2} />まとめて追加
-          </button>
+        <div className="flex-1 px-6 py-4 flex flex-col justify-center">
+          {footTypeLabel ? (
+            <>
+              <p className="text-xs text-gray-400 mb-0.5">あなたの特徴は...</p>
+              <p className="font-bold text-gray-900 text-lg leading-tight">{footTypeLabel}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                通常サイズ: {footProfile?.default_size}cm
+                {footProfile?.foot_width_cm ? `　幅: ${footProfile.foot_width_cm}cm` : ''}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-gray-700 text-sm">足の基礎情報を登録するとサイズ診断の精度が上がります</p>
+              <p className="text-xs text-gray-400 mt-1">左右の足サイズ・足幅・アーチの高さなどを記録</p>
+            </>
+          )}
         </div>
       </div>
 
-      {/* ── タイトル ── */}
-      <div className="mb-6">
-        <h2 className="text-3xl font-bold text-gray-900 tracking-wide">SHOE CLOAK</h2>
-        <p className="text-sm text-gray-400 mt-1">
-          {activeShoes.length}足のコレクション / {activeShoes.length} pairs in collection
-          {footProfile ? `　｜　通常サイズ: ${footProfile.default_size}cm` : ''}
-        </p>
+      {/* ── タイトル + 靴を追加ボタン ── */}
+      <div className="flex items-end justify-between mb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900 tracking-wide">SHOE CLOAK</h2>
+          <p className="text-sm text-gray-400 mt-1">
+            {activeShoes.length}足のコレクション / {activeShoes.length} pairs in collection
+          </p>
+        </div>
+        {/* まとめて登録 = 靴を追加 */}
+        <div className="text-right">
+          <button
+            onClick={() => setShowBulk(true)}
+            className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3 hover:bg-gray-700 transition-colors font-semibold text-sm"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2} />靴を追加する
+          </button>
+          <p className="text-xs text-gray-400 mt-1.5">複数の靴をまとめて一括登録できます</p>
+        </div>
       </div>
 
       {/* ── カテゴリフィルター ── */}
@@ -632,7 +663,6 @@ function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: 
         </div>
       )}
 
-      {showAdd && <AddShoeModal onClose={() => setShowAdd(false)} onAdd={() => { onRefresh(); setShowAdd(false); }} />}
       {editShoe && <AddShoeModal onClose={() => setEditShoe(undefined)} onAdd={() => { onRefresh(); setEditShoe(undefined); }} editShoe={editShoe} />}
       {showBulk && <BulkAddModal onClose={() => setShowBulk(false)} onAdd={() => { onRefresh(); setShowBulk(false); }} />}
     </div>
@@ -641,24 +671,29 @@ function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: 
 
 
 // ================================================================
-// ④ AIアシスタント（Bolt AI Assistant デザイン）
+// ④ AIアシスタント（サブタブなし・チャット上部・スクロール修正）
 // ================================================================
 function AISizeAssistant({ shoes, footProfile }: { shoes: Shoe[]; footProfile: FootProfile | null }) {
-  const [aiTab, setAiTab]     = useState<AiSubTab>('size-advice');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput]     = useState('');
-  const [loading, setLoading] = useState(false);
-  const [consultBrand, setConsultBrand]     = useState('');
-  const [consultBrandQuery, setConsultBrandQuery] = useState('');
-  const [consultCategory, setConsultCategory] = useState<ShoeCategory>('sneakers');
-  const [showDrop, setShowDrop] = useState(false);
-  const [consultResult, setConsultResult] = useState<ReturnType<typeof getSizeRecommendation> | null>(null);
-  const [consultUrl, setConsultUrl] = useState('');
-  const [urlDetectedBrand, setUrlDetectedBrand] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  const [input, setInput]       = useState('');
+  const [loading, setLoading]   = useState(false);
 
-  // URLからブランドを自動検出してフォームに反映
+  const [consultBrand, setConsultBrand]         = useState('');
+  const [consultBrandQuery, setConsultBrandQuery] = useState('');
+  const [consultCategory, setConsultCategory]   = useState<ShoeCategory>('sneakers');
+  const [showDrop, setShowDrop]                 = useState(false);
+  const [consultResult, setConsultResult]       = useState<ReturnType<typeof getSizeRecommendation> | null>(null);
+  const [consultUrl, setConsultUrl]             = useState('');
+  const [urlDetectedBrand, setUrlDetectedBrand] = useState('');
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // スクロール修正: メッセージが追加された時だけスクロール（block: nearest でページ全体スクロールを防止）
+  useEffect(() => {
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [messages]);
+
   const handleUrlChange = (url: string) => {
     setConsultUrl(url);
     setConsultResult(null);
@@ -689,245 +724,465 @@ function AISizeAssistant({ shoes, footProfile }: { shoes: Shoe[]; footProfile: F
     await new Promise(r => setTimeout(r, 800));
     const lower = text.toLowerCase();
     let reply = '';
-    if (lower.includes('サイズ') || lower.includes('cm')) reply = `通常サイズは ${footProfile?.default_size ?? 'N/A'}cm です。左の「サイズ相談」で特定ブランドの推奨サイズを確認できます。`;
-    else if (lower.includes('ブランド')) {
+    if (lower.includes('サイズ') || lower.includes('cm')) {
+      reply = `通常サイズは ${footProfile?.default_size ?? 'N/A'}cm です。下の「サイズ相談」で特定ブランドの推奨サイズを確認できます。`;
+    } else if (lower.includes('ブランド')) {
       const bc = shoes.reduce((a: Record<string, number>, s) => { a[s.brand] = (a[s.brand] || 0) + 1; return a; }, {});
       const top = Object.entries(bc).sort(([, a], [, b]) => b - a).slice(0, 3).map(([b]) => b);
       reply = top.length > 0 ? `よく履くブランド: ${top.join('、')}。` : 'まだ靴データがありません。「Shoe Cloak」タブで追加してください。';
     } else if (lower.includes('足') || lower.includes('タイプ')) {
-      reply = footProfile ? `足タイプは「${footProfile.foot_type === 'wide' ? '幅広・甲高' : footProfile.foot_type === 'narrow' ? '細め' : '標準'}」です。` : '足タイプ未診断です。「足タイプ診断」タブで診断してください。';
+      reply = footProfile
+        ? `足タイプは「${footProfile.foot_type === 'wide' ? '幅広・甲高' : footProfile.foot_type === 'narrow' ? '細め' : '標準'}」です。`
+        : '足タイプ未登録です。「基礎情報」タブで足の情報を入力してください。';
     } else if (lower.includes('url') || lower.startsWith('http')) {
       const detected = BRANDS.find(b => lower.includes(b.name.toLowerCase()));
-      reply = detected ? `URLから ${detected.name} を検出しました。サイズ相談フォームで推奨サイズを確認できます。` : '商品URLからブランドを特定できませんでした。サイズ相談フォームで直接ブランドを選択してください。';
-    } else reply = 'サイズ・ブランド・足タイプ、または商品URLについてお答えできます！';
+      reply = detected
+        ? `URLから ${detected.name} を検出しました。下のサイズ相談フォームで推奨サイズを確認できます。`
+        : '商品URLからブランドを特定できませんでした。サイズ相談フォームで直接ブランドを選択してください。';
+    } else {
+      reply = 'サイズ・ブランド・足タイプ、または商品URLについてお答えできます！';
+    }
     setMessages(p => [...p, { id: (Date.now() + 1).toString(), role: 'assistant', content: reply }]);
     setLoading(false);
   };
 
-  // ワードローブ分析
+  // ワードローブ分析データ
   const activeShoes = shoes.filter(s => s.status === 'active');
   const brandCounts = activeShoes.reduce((a: Record<string, { count: number; sizes: number[] }>, s) => {
     if (!a[s.brand]) a[s.brand] = { count: 0, sizes: [] };
     a[s.brand].count++; a[s.brand].sizes.push(s.size); return a;
   }, {});
   const categoryCounts = activeShoes.reduce((a: Record<string, number>, s) => { a[s.category] = (a[s.category] || 0) + 1; return a; }, {});
-  const fitCounts = activeShoes.reduce((a: Record<string, number>, s) => { a[s.fit_feedback] = (a[s.fit_feedback] || 0) + 1; return a; }, {});
-
-  const aiSubTabs = [
-    { key: 'size-advice' as AiSubTab, icon: <MessageCircle className="w-4 h-4" strokeWidth={1.5} />, label: 'AIサイズ推奨' },
-    { key: 'wardrobe-analysis' as AiSubTab, icon: <BarChart2 className="w-4 h-4" strokeWidth={1.5} />, label: 'ワードローブ分析' },
-    { key: 'community-explore' as AiSubTab, icon: <Users className="w-4 h-4" strokeWidth={1.5} />, label: 'コミュニティ探索' },
-  ];
+  const fitCounts      = activeShoes.reduce((a: Record<string, number>, s) => { a[s.fit_feedback] = (a[s.fit_feedback] || 0) + 1; return a; }, {});
 
   return (
-    <div className="border border-gray-200">
-      {/* ヘッダー */}
-      <div className="p-6 border-b border-gray-100">
-        <div className="flex items-center gap-3 mb-4">
-          <MessageCircle className="w-6 h-6 text-gray-600" strokeWidth={1.5} />
+    <div className="space-y-6">
+      {/* ── ① フリーワード相談（上部・コンパクト） ── */}
+      <div className="border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+          <MessageCircle className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
           <div>
-            <h3 className="font-bold text-gray-900 text-lg">AIアシスタント / AI ASSISTANT</h3>
-            <p className="text-xs text-gray-400">AIサイズ推奨 - サイズやブランドについて質問してください</p>
+            <h3 className="font-bold text-gray-900">AIチャット相談 / Free Word Consultation</h3>
+            <p className="text-xs text-gray-400">サイズ・ブランド・URLを自由に質問できます</p>
           </div>
         </div>
-        {/* サブタブ */}
-        <div className="flex gap-2">
-          {aiSubTabs.map(tab => (
-            <button key={tab.key} onClick={() => setAiTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors border ${aiTab === tab.key ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:border-gray-900'}`}>
-              {tab.icon}{tab.label}
-            </button>
+        {/* チャット表示エリア（縦幅を抑制） */}
+        <div className="overflow-y-auto px-5 py-4 space-y-3" style={{ maxHeight: '260px', minHeight: '120px' }}>
+          {messages.length === 0 && (
+            <div className="flex flex-wrap gap-2">
+              {['"Nikeは何cmがおすすめ？"', '"この商品URLのサイズは？"', '"どのブランドが自分に合ってる？"', '"次に何を買うべき？"'].map(q => (
+                <button key={q} onClick={() => handleSend(q.replace(/"/g, ''))}
+                  className="text-xs border border-gray-200 text-gray-500 hover:border-gray-900 hover:text-gray-900 px-3 py-1.5 rounded-full transition-colors">{q}</button>
+              ))}
+            </div>
+          )}
+          {messages.map(msg => (
+            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[85%] px-4 py-2.5 text-sm rounded-xl leading-relaxed ${msg.role === 'user' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-800 border border-gray-100'}`}>{msg.content}</div>
+            </div>
           ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 flex gap-1">
+                {[0,100,200].map(d => <div key={d} className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+        {/* 入力欄 */}
+        <div className="px-5 py-3 border-t border-gray-100 flex gap-2">
+          <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()}
+            placeholder="メッセージを入力、または商品URLを貼り付け..."
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+          <button onClick={() => handleSend()} disabled={loading || !input.trim()} className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-40 transition-colors">
+            <Send className="w-4 h-4" strokeWidth={1.5} />
+          </button>
         </div>
       </div>
 
-      {/* ── AIサイズ推奨 ── */}
-      {aiTab === 'size-advice' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-          {/* サイズ相談 */}
-          <div className="p-6">
-            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2"><Search className="w-4 h-4" strokeWidth={1.5} />サイズ相談</h4>
-            <div className="space-y-4 mb-4">
-
-              {/* ── 欲しい靴のURL入力 ── */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                  欲しい靴のURL
-                  <span className="ml-1.5 text-gray-400 font-normal">（貼り付けるとブランドを自動検出）</span>
-                </label>
-                <input
-                  type="url"
-                  value={consultUrl}
-                  onChange={e => handleUrlChange(e.target.value)}
-                  placeholder="https://www.nike.com/..."
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
-                />
-                {consultUrl && urlDetectedBrand && (
-                  <p className="text-xs text-green-600 mt-1.5 flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
-                    {urlDetectedBrand} を検出しました
-                  </p>
-                )}
-                {consultUrl && !urlDetectedBrand && (
-                  <p className="text-xs text-gray-400 mt-1.5">ブランドを自動検出できませんでした。下のフォームで直接選択してください。</p>
-                )}
-              </div>
-
-              <div className="border-t border-gray-100 pt-4">
-                <div className="relative">
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5">ブランド</label>
-                  <input type="text" value={consultBrandQuery} onChange={e => { setConsultBrandQuery(e.target.value); setConsultBrand(''); setUrlDetectedBrand(''); setShowDrop(true); }} onFocus={() => setShowDrop(true)} placeholder="例: Nike"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
-                  {showDrop && filteredBrands.length > 0 && !consultBrand && (
-                    <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
-                      {filteredBrands.map(b => <button key={b.name} onClick={() => { setConsultBrand(b.name); setConsultBrandQuery(b.name); setShowDrop(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{b.name}</button>)}
-                    </div>
-                  )}
+      {/* ── ② サイズ相談フォーム ── */}
+      <div className="border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+          <Search className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
+          <h3 className="font-bold text-gray-900">サイズ相談 / Size Consultation</h3>
+        </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 左: 入力フォーム */}
+          <div className="space-y-4">
+            {/* URL入力 */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                欲しい靴のURL
+                <span className="ml-1.5 text-gray-400 font-normal">（貼り付けるとブランド自動検出）</span>
+              </label>
+              <input type="url" value={consultUrl} onChange={e => handleUrlChange(e.target.value)} placeholder="https://www.nike.com/..."
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+              {consultUrl && urlDetectedBrand && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5} />{urlDetectedBrand} を検出しました</p>
+              )}
+              {consultUrl && !urlDetectedBrand && (
+                <p className="text-xs text-gray-400 mt-1">自動検出できませんでした。下で直接選択してください。</p>
+              )}
+            </div>
+            {/* ブランド */}
+            <div className="relative">
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">ブランド</label>
+              <input type="text" value={consultBrandQuery}
+                onChange={e => { setConsultBrandQuery(e.target.value); setConsultBrand(''); setUrlDetectedBrand(''); setShowDrop(true); }}
+                onFocus={() => setShowDrop(true)} placeholder="例: Nike"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+              {showDrop && filteredBrands.length > 0 && !consultBrand && (
+                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                  {filteredBrands.map(b => (
+                    <button key={b.name} onClick={() => { setConsultBrand(b.name); setConsultBrandQuery(b.name); setShowDrop(false); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{b.name}</button>
+                  ))}
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">カテゴリ</label>
-                <div className="relative">
-                  <select value={consultCategory} onChange={e => setConsultCategory(e.target.value as ShoeCategory)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-gray-900">
-                    {Object.entries(CATEGORY_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={1.5} />
-                </div>
+              )}
+            </div>
+            {/* カテゴリ */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">カテゴリ</label>
+              <div className="relative">
+                <select value={consultCategory} onChange={e => setConsultCategory(e.target.value as ShoeCategory)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-gray-900">
+                  {Object.entries(CATEGORY_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+                <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={1.5} />
               </div>
             </div>
-            <button onClick={handleConsult} disabled={!consultBrand} className="w-full bg-gray-900 text-white py-2.5 rounded-lg hover:bg-gray-700 disabled:opacity-40 text-sm font-medium flex items-center justify-center gap-2">
+            <button onClick={handleConsult} disabled={!consultBrand}
+              className="w-full bg-gray-900 text-white py-2.5 rounded-lg hover:bg-gray-700 disabled:opacity-40 text-sm font-medium flex items-center justify-center gap-2">
               <Sparkles className="w-4 h-4" strokeWidth={1.5} />サイズを調べる
             </button>
-            {consultResult && (
-              <div className="mt-4 border-t border-gray-100 pt-4">
-                <div className="bg-gray-900 text-white rounded-xl p-4 text-center mb-3">
+          </div>
+          {/* 右: 結果 */}
+          <div className="flex flex-col justify-center">
+            {consultResult ? (
+              <div>
+                <div className="bg-gray-900 text-white rounded-xl p-5 text-center mb-3">
                   <p className="text-xs text-gray-400 mb-1">推奨サイズ</p>
-                  <p className="text-3xl font-bold">{consultResult.recommendedSize}<span className="text-sm font-normal ml-1">cm</span></p>
+                  <p className="text-4xl font-bold">{consultResult.recommendedSize}<span className="text-base font-normal ml-1">cm</span></p>
                   <p className="text-xs text-gray-400 mt-1">信頼度 {consultResult.confidenceScore}%</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 leading-relaxed whitespace-pre-line">{consultResult.reasoning}</div>
               </div>
+            ) : (
+              <div className="text-center text-gray-300 py-8">
+                <Sparkles className="w-12 h-12 mx-auto mb-3" strokeWidth={1} />
+                <p className="text-sm text-gray-400">URLまたはブランドを入力して<br />サイズを調べましょう</p>
+              </div>
             )}
           </div>
-          {/* チャット */}
-          <div className="flex flex-col" style={{ height: '520px' }}>
-            <div className="flex-1 overflow-y-auto p-6 space-y-3">
-              {messages.length === 0 && (
-                <div className="text-center text-gray-400 mt-8">
-                  <p className="text-sm mb-2">会話を始めて、パーソナライズされたアドバイスを受け取りましょう</p>
-                  <p className="text-xs mb-5 text-gray-400">試しに聞いてみてください：</p>
-                  <div className="space-y-2">
-                    {['"Nikeは何cmがおすすめ？"', '"この商品URLのサイズは？"', '"どのブランドが自分に合ってる？"', '"次に何を買うべき？"'].map(q => (
-                      <button key={q} onClick={() => handleSend(q.replace(/"/g, ''))} className="block w-full text-center text-xs text-gray-500 hover:text-gray-900 transition-colors">{q}</button>
-                    ))}
+        </div>
+      </div>
+
+      {/* ── ③ ワードローブ分析 ── */}
+      <div className="border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+          <BarChart2 className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
+          <h3 className="font-bold text-gray-900">ワードローブ分析 / Wardrobe Analysis</h3>
+        </div>
+        {activeShoes.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <BarChart2 className="w-10 h-10 mx-auto mb-3 text-gray-200" strokeWidth={1} />
+            <p className="text-sm">靴を登録するとここに分析が表示されます</p>
+          </div>
+        ) : (
+          <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* ブランド別 */}
+            <div>
+              <h5 className="text-xs font-semibold tracking-wider uppercase text-gray-400 mb-3">ブランド別</h5>
+              <div className="space-y-2.5">
+                {Object.entries(brandCounts).sort(([,a],[,b]) => b.count - a.count).slice(0, 5).map(([brand, data]) => (
+                  <div key={brand}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-gray-900">{brand}</span>
+                      <span className="text-gray-400">{data.count}足 / {(data.sizes.reduce((a,b)=>a+b,0)/data.sizes.length).toFixed(1)}cm</span>
+                    </div>
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full">
+                      <div className="bg-gray-900 h-1.5 rounded-full" style={{ width: `${(data.count / activeShoes.length) * 100}%` }} />
+                    </div>
                   </div>
-                </div>
-              )}
-              {messages.map(msg => (
-                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] px-4 py-3 text-sm rounded-xl leading-relaxed ${msg.role === 'user' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-800 border border-gray-100'}`}>{msg.content}</div>
-                </div>
-              ))}
-              {loading && <div className="flex justify-start"><div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 flex gap-1">{[0,100,200].map(d => <div key={d} className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />)}</div></div>}
-              <div ref={messagesEndRef} />
+                ))}
+              </div>
             </div>
-            <div className="p-4 border-t border-gray-100 flex gap-2">
-              <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder="メッセージを入力、または商品URLを貼り付け..."
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
-              <button onClick={() => handleSend()} disabled={loading || !input.trim()} className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-40 transition-colors">
-                <Send className="w-4 h-4" strokeWidth={1.5} />
-              </button>
+            {/* カテゴリ別 */}
+            <div>
+              <h5 className="text-xs font-semibold tracking-wider uppercase text-gray-400 mb-3">カテゴリ別</h5>
+              <div className="space-y-2.5">
+                {Object.entries(categoryCounts).sort(([,a],[,b]) => b-a).map(([cat, count]) => (
+                  <div key={cat}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-gray-900">{CATEGORY_LABELS[cat as ShoeCategory]}</span>
+                      <span className="text-gray-400">{count}足</span>
+                    </div>
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full">
+                      <div className="bg-gray-500 h-1.5 rounded-full" style={{ width: `${(count / activeShoes.length) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* フィット感傾向 */}
+            <div>
+              <h5 className="text-xs font-semibold tracking-wider uppercase text-gray-400 mb-3">フィット感傾向</h5>
+              <div className="space-y-2.5">
+                {Object.entries(fitCounts).sort(([,a],[,b]) => b-a).map(([fit, count]) => (
+                  <div key={fit}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-gray-900">{FIT_FEEDBACK_LABELS[fit as FitFeedback]}</span>
+                      <span className="text-gray-400">{count}足</span>
+                    </div>
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full">
+                      <div className={`h-1.5 rounded-full ${fit === 'perfect' ? 'bg-green-500' : fit.includes('small') ? 'bg-orange-400' : 'bg-blue-400'}`}
+                        style={{ width: `${(count / activeShoes.length) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ── ワードローブ分析 ── */}
-      {aiTab === 'wardrobe-analysis' && (
-        <div className="p-6">
-          <h4 className="font-semibold text-gray-900 mb-6 flex items-center gap-2"><BarChart2 className="w-4 h-4" strokeWidth={1.5} />ワードローブ分析</h4>
-          {activeShoes.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
-              <BarChart2 className="w-12 h-12 mx-auto mb-3 text-gray-200" strokeWidth={1} />
-              <p>靴を登録するとワードローブの分析が表示されます</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* ブランド別 */}
-              <div className="border border-gray-200 p-5">
-                <h5 className="text-xs font-semibold tracking-wider uppercase text-gray-400 mb-4">ブランド別</h5>
-                <div className="space-y-3">
-                  {Object.entries(brandCounts).sort(([,a],[,b]) => b.count - a.count).slice(0, 5).map(([brand, data]) => (
-                    <div key={brand}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium text-gray-900">{brand}</span>
-                        <span className="text-gray-400">{data.count}足 / 平均{(data.sizes.reduce((a,b)=>a+b,0)/data.sizes.length).toFixed(1)}cm</span>
-                      </div>
-                      <div className="w-full bg-gray-100 h-1.5 rounded-full">
-                        <div className="bg-gray-900 h-1.5 rounded-full" style={{ width: `${(data.count / activeShoes.length) * 100}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* カテゴリ別 */}
-              <div className="border border-gray-200 p-5">
-                <h5 className="text-xs font-semibold tracking-wider uppercase text-gray-400 mb-4">カテゴリ別</h5>
-                <div className="space-y-3">
-                  {Object.entries(categoryCounts).sort(([,a],[,b]) => b-a).map(([cat, count]) => (
-                    <div key={cat}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium text-gray-900">{CATEGORY_LABELS[cat as ShoeCategory]}</span>
-                        <span className="text-gray-400">{count}足</span>
-                      </div>
-                      <div className="w-full bg-gray-100 h-1.5 rounded-full">
-                        <div className="bg-gray-500 h-1.5 rounded-full" style={{ width: `${(count / activeShoes.length) * 100}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* フィット感傾向 */}
-              <div className="border border-gray-200 p-5">
-                <h5 className="text-xs font-semibold tracking-wider uppercase text-gray-400 mb-4">フィット感傾向</h5>
-                <div className="space-y-3">
-                  {Object.entries(fitCounts).sort(([,a],[,b]) => b-a).map(([fit, count]) => (
-                    <div key={fit}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium text-gray-900">{FIT_FEEDBACK_LABELS[fit as FitFeedback]}</span>
-                        <span className="text-gray-400">{count}足</span>
-                      </div>
-                      <div className="w-full bg-gray-100 h-1.5 rounded-full">
-                        <div className={`h-1.5 rounded-full ${fit === 'perfect' ? 'bg-green-500' : fit.includes('small') ? 'bg-orange-400' : fit.includes('large') ? 'bg-blue-400' : 'bg-red-400'}`} style={{ width: `${(count / activeShoes.length) * 100}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {fitCounts['perfect'] > 0 && (
-                  <div className="mt-5 bg-green-50 border border-green-100 rounded-lg p-3 text-xs text-green-700">
-                    ぴったりの割合: <span className="font-bold">{Math.round((fitCounts['perfect'] / activeShoes.length) * 100)}%</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── コミュニティ探索 ── */}
-      {aiTab === 'community-explore' && (
-        <div className="p-6 text-center py-20">
-          <Users className="w-14 h-14 text-gray-200 mx-auto mb-4" strokeWidth={1} />
-          <p className="text-gray-400 text-sm">まだ公開されているワードローブがありません</p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
 // ================================================================
-// ⑤ コミュニティ
+// ⑤ 基礎情報（プロフィール）
+// ================================================================
+function ProfileView({ onFootProfileUpdate }: { onFootProfileUpdate: (p: FootProfile) => void }) {
+  const [profile, setProfile]   = useState<UserProfile>(loadUserProfile());
+  const [saved, setSaved]       = useState(false);
+  const [diagnosed, setDiagnosed] = useState(false);
+  const [diagResult, setDiagResult] = useState<{ foot_type: string; label: string; detail: string } | null>(null);
+
+  const set = <K extends keyof UserProfile>(key: K, val: UserProfile[K]) => {
+    setProfile(p => ({ ...p, [key]: val }));
+    setSaved(false);
+    setDiagnosed(false);
+  };
+
+  const handleSave = () => {
+    saveUserProfile(profile);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  // 足の特徴を診断
+  const handleDiagnosis = () => {
+    const ll = profile.left_foot_length;
+    const rl = profile.right_foot_length;
+    const lw = profile.left_foot_width;
+    const rw = profile.right_foot_width;
+
+    const avgLen   = ll && rl ? (ll + rl) / 2 : (ll ?? rl ?? null);
+    const avgWidth = lw && rw ? (lw + rw) / 2 : (lw ?? rw ?? null);
+
+    if (!avgLen) { alert('足の長さを入力してください'); return; }
+
+    // 足タイプ判定（幅/長さ比率）
+    let foot_type: 'wide' | 'standard' | 'narrow' = 'standard';
+    let label = '標準タイプ';
+    let detail = '一般的な足型です。多くのブランドの標準幅（D〜2E）が合いやすい傾向があります。';
+
+    if (avgWidth) {
+      const ratio = avgWidth / avgLen;
+      if (ratio > 0.405) {
+        foot_type = 'wide';
+        label     = '幅広・甲高タイプ';
+        detail    = '足幅が広く甲が高い傾向があります。New Balance・Merrell・Dr. Martens などワイド設計のブランドが合いやすいです。';
+      } else if (ratio < 0.375) {
+        foot_type = 'narrow';
+        label     = '細め・スリムタイプ';
+        detail    = '足幅が細くスリムな形状です。On Running・Converse などナロー設計のブランドが合いやすい傾向があります。';
+      }
+    }
+
+    // 推奨サイズ計算（実測長 + 1.5cmの捨て寸）
+    const recSize = Math.round((avgLen + 1.5) * 2) / 2;
+
+    // FootProfileを更新
+    const footP: FootProfile = {
+      foot_type,
+      foot_length_cm: avgLen,
+      foot_width_cm:  avgWidth ?? undefined,
+      default_size:   recSize,
+      updated_at:     new Date().toISOString(),
+    };
+    saveFootProfile(footP);
+    onFootProfileUpdate(footP);
+
+    setDiagResult({ foot_type, label, detail });
+    setDiagnosed(true);
+  };
+
+  const numInput = (
+    label: string,
+    key: keyof UserProfile,
+    placeholder: string,
+    unit = 'cm'
+  ) => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <div className="relative">
+        <input
+          type="number" step="0.5" min="0"
+          value={(profile[key] as number | null) ?? ''}
+          onChange={e => set(key, e.target.value === '' ? null : parseFloat(e.target.value) as UserProfile[typeof key])}
+          placeholder={placeholder}
+          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm pr-10"
+        />
+        <span className="absolute right-3 top-3 text-xs text-gray-400">{unit}</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-2xl space-y-8">
+
+      {/* ── 公開設定 ── */}
+      <div className="border border-gray-200 rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Globe className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
+          <h3 className="font-bold text-gray-900 text-base">公開設定 / Privacy Settings</h3>
+        </div>
+
+        <div className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">表示名 / Display Name</label>
+            <input
+              type="text"
+              value={profile.display_name}
+              onChange={e => set('display_name', e.target.value)}
+              placeholder="表示名を入力 / Enter display name"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+            />
+            <p className="text-xs text-gray-400 mt-1">公開プロフィールで表示される名前です / Name shown on public profile</p>
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={profile.is_public}
+              onChange={e => set('is_public', e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-gray-900"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-700">プロフィールを公開する / Make profile public</p>
+              <p className="text-xs text-gray-400 mt-0.5">あなたのワードローブが他のユーザーに表示されます / Your wardrobe will be visible to other users</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* ── プロフィール基礎情報 ── */}
+      <div className="border border-gray-200 rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <User className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
+          <h3 className="font-bold text-gray-900 text-base">プロフィール / Profile</h3>
+        </div>
+
+        <div className="space-y-5">
+          {/* 年齢・身長・体重 */}
+          <div className="grid grid-cols-3 gap-4">
+            {numInput('年齢 / Age', 'age', '38', '歳')}
+            {numInput('身長 / Height', 'height_cm', '170')}
+            {numInput('体重 / Weight', 'weight_kg', '70', 'kg')}
+          </div>
+
+          {/* 左右の足の長さ */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">足の長さ / Foot Length (cm)</p>
+            <div className="grid grid-cols-2 gap-4">
+              {numInput('左足 / Left', 'left_foot_length', '25.5')}
+              {numInput('右足 / Right', 'right_foot_length', '25.5')}
+            </div>
+          </div>
+
+          {/* 左右の足の幅 */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">足の幅 / Foot Width (cm)</p>
+            <div className="grid grid-cols-2 gap-4">
+              {numInput('左足 / Left', 'left_foot_width', '10.0')}
+              {numInput('右足 / Right', 'right_foot_width', '10.0')}
+            </div>
+          </div>
+
+          {/* アーチの高さ */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">アーチの高さ / Arch Height</label>
+            <div className="relative">
+              <select
+                value={profile.arch_height ?? ''}
+                onChange={e => set('arch_height', (e.target.value || null) as ArchHeight | null)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-gray-900"
+              >
+                <option value="">選択してください / Select</option>
+                {(Object.entries(ARCH_HEIGHT_LABELS) as [ArchHeight, string][]).map(([k, l]) => (
+                  <option key={k} value={k}>{l}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={1.5} />
+            </div>
+          </div>
+
+          {/* 好みのフィット感 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">好みのフィット感 / Preferred Fit</label>
+            <div className="relative">
+              <select
+                value={profile.preferred_fit ?? ''}
+                onChange={e => set('preferred_fit', (e.target.value || null) as PreferredFit | null)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-gray-900"
+              >
+                <option value="">選択してください / Select</option>
+                {(Object.entries(PREFERRED_FIT_LABELS) as [PreferredFit, string][]).map(([k, l]) => (
+                  <option key={k} value={k}>{l}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={1.5} />
+            </div>
+          </div>
+        </div>
+
+        {/* 診断ボタン */}
+        <div className="mt-6 pt-5 border-t border-gray-100">
+          <button
+            onClick={handleDiagnosis}
+            className="w-full flex items-center justify-center gap-2 border-2 border-gray-900 text-gray-900 py-3 hover:bg-gray-900 hover:text-white transition-colors font-semibold text-sm"
+          >
+            <Sparkles className="w-4 h-4" strokeWidth={1.5} />
+            足の特徴を診断する / Analyze Foot Type
+          </button>
+        </div>
+
+        {/* 診断結果 */}
+        {diagnosed && diagResult && (
+          <div className="mt-4 bg-gray-900 text-white rounded-xl p-5">
+            <p className="text-xs text-gray-400 mb-1">あなたの足の特徴</p>
+            <p className="text-xl font-bold mb-2">{diagResult.label}</p>
+            <p className="text-sm text-gray-300 leading-relaxed">{diagResult.detail}</p>
+            <p className="text-xs text-gray-400 mt-3">※ 推奨サイズと足タイプを「Shoe Cloak」に反映しました</p>
+          </div>
+        )}
+      </div>
+
+      {/* 保存ボタン */}
+      <button
+        onClick={handleSave}
+        className="w-full flex items-center justify-center gap-2 bg-gray-900 text-white py-4 hover:bg-gray-700 transition-colors font-semibold text-sm"
+      >
+        {saved ? <><Check className="w-4 h-4" strokeWidth={2.5} />保存しました！</> : <><Save className="w-4 h-4" strokeWidth={1.5} />基礎情報を保存する</>}
+      </button>
+    </div>
+  );
+}
+
+// ================================================================
+// ⑥ コミュニティ
 // ================================================================
 function CommunityView() {
   return (
@@ -950,8 +1205,8 @@ function CommunityView() {
 export default function ShoecloakAdmin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab]   = useState<TabType>('home');
-  const [shoes, setShoes]           = useState<Shoe[]>([]);
+  const [activeTab, setActiveTab]     = useState<TabType>('home');
+  const [shoes, setShoes]             = useState<Shoe[]>([]);
   const [footProfile, setFootProfile] = useState<FootProfile | null>(null);
 
   useEffect(() => {
@@ -964,11 +1219,18 @@ export default function ShoecloakAdmin() {
 
   const refreshShoes = () => setShoes(loadShoes());
 
+  // タブ切り替え時にページトップへスクロール
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
   const tabs = [
     { key: 'home'         as TabType, label: 'ホーム',      subLabel: 'Home'          },
     { key: 'shoecloak'    as TabType, label: 'Shoe Cloak',  subLabel: 'My Wardrobe'   },
     { key: 'ai-assistant' as TabType, label: 'AI Assistant',subLabel: 'Size & Analysis'},
     { key: 'community'    as TabType, label: 'Community',   subLabel: 'みんなのワードローブ'},
+    { key: 'profile'      as TabType, label: '基礎情報',     subLabel: 'My Profile'    },
   ];
 
   if (authLoading) return <div className="min-h-screen bg-white flex items-center justify-center"><div className="text-gray-400 font-light tracking-widest text-sm">Loading...</div></div>;
@@ -988,7 +1250,7 @@ export default function ShoecloakAdmin() {
         {/* タブ */}
         <div className="flex border-b border-gray-200 mb-10 overflow-x-auto">
           {tabs.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
               className={`flex-shrink-0 px-6 py-4 transition-colors border-b-2 -mb-px ${activeTab === tab.key ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-700'}`}>
               <p className="text-sm font-medium whitespace-nowrap">{tab.label}</p>
               <p className="text-xs text-gray-400 mt-0.5 whitespace-nowrap">{tab.subLabel}</p>
@@ -996,10 +1258,11 @@ export default function ShoecloakAdmin() {
           ))}
         </div>
 
-        {activeTab === 'home'         && <HomeView shoes={shoes} footProfile={footProfile} onTabChange={setActiveTab} />}
-        {activeTab === 'shoecloak'    && <ShoeCloakView shoes={shoes} onRefresh={refreshShoes} footProfile={footProfile} onTabChange={setActiveTab} />}
+        {activeTab === 'home'         && <HomeView shoes={shoes} footProfile={footProfile} onTabChange={handleTabChange} />}
+        {activeTab === 'shoecloak'    && <ShoeCloakView shoes={shoes} onRefresh={refreshShoes} footProfile={footProfile} onTabChange={handleTabChange} />}
         {activeTab === 'ai-assistant' && <AISizeAssistant shoes={shoes} footProfile={footProfile} />}
         {activeTab === 'community'    && <CommunityView />}
+        {activeTab === 'profile'      && <ProfileView onFootProfileUpdate={p => { setFootProfile(p); }} />}
       </div>
     </div>
   );

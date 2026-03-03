@@ -113,3 +113,43 @@ export const FIT_FEEDBACK_LABELS: Record<FitFeedback, string> = {
   too_large:      'かなり大きい',
 };
 
+// ==================== ユーザー基礎情報 ====================
+
+export type ArchHeight    = 'low' | 'medium' | 'high';
+export type PreferredFit  = 'snug' | 'regular' | 'loose';
+
+export interface UserProfile {
+  display_name:       string;
+  age:                number | null;
+  height_cm:          number | null;
+  weight_kg:          number | null;
+  left_foot_length:   number | null;   // 実測値 cm
+  right_foot_length:  number | null;
+  left_foot_width:    number | null;
+  right_foot_width:   number | null;
+  arch_height:        ArchHeight | null;
+  preferred_fit:      PreferredFit | null;
+  is_public:          boolean;
+}
+
+export const DEFAULT_USER_PROFILE: UserProfile = {
+  display_name: '',
+  age: null, height_cm: null, weight_kg: null,
+  left_foot_length: null, right_foot_length: null,
+  left_foot_width: null,  right_foot_width: null,
+  arch_height: null, preferred_fit: null,
+  is_public: false,
+};
+
+export const ARCH_HEIGHT_LABELS: Record<ArchHeight, string> = {
+  low:    '低め / Low',
+  medium: '普通 / Medium',
+  high:   '高め / High',
+};
+
+export const PREFERRED_FIT_LABELS: Record<PreferredFit, string> = {
+  snug:    'ぴったり / Snug',
+  regular: '標準 / Regular',
+  loose:   'ゆったり / Loose',
+};
+
