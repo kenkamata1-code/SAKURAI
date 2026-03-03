@@ -1,8 +1,25 @@
 // ==================== SHOECLOAK 型定義 ====================
 
-export type FootType = 'narrow' | 'standard' | 'wide';
+export type FootType    = 'narrow' | 'standard' | 'wide';
 export type FitFeedback = 'too_small' | 'slightly_small' | 'perfect' | 'slightly_large' | 'too_large';
-export type ShoeStatus = 'active' | 'sold' | 'donated' | 'archived';
+export type ShoeStatus  = 'active' | 'sold' | 'donated' | 'archived';
+export type ToeShape    = 'egyptian' | 'greek' | 'square';
+export type SizeUnit    = 'cm' | 'uk' | 'us';
+
+// サイズ単位変換（保存は常にcm）
+export function convertSizeFromCm(cm: number, to: SizeUnit): number {
+  if (to === 'cm') return cm;
+  if (to === 'us') return Math.round((cm - 18) * 2) / 2;
+  if (to === 'uk') return Math.round((cm - 18.5) * 2) / 2;
+  return cm;
+}
+export function convertSizeToCm(size: number, from: SizeUnit): number {
+  if (from === 'cm') return size;
+  if (from === 'us') return size + 18;
+  if (from === 'uk') return size + 18.5;
+  return size;
+}
+export const SIZE_UNIT_LABELS: Record<SizeUnit, string> = { cm: 'CM', uk: 'UK', us: 'US' };
 export type ShoeCategory =
   | 'sneakers'
   | 'dress_shoes'
@@ -17,18 +34,38 @@ export type ShoeCategory =
 
 export interface Shoe {
   id: string;
-  brand: string;
-  model?: string;
+  brand: string;       // 大文字正規化して保存
+  model?: string;      // 大文字正規化して保存
   category: ShoeCategory;
-  size: number;
+  size: number;        // 常にcmで保存
   color?: string;
   fit_feedback: FitFeedback;
   purchase_date?: string;
   purchase_price?: number;
   notes?: string;
+  photos?: string[];   // base64, 最大3枚
   status: ShoeStatus;
   created_at: string;
 }
+
+// 足の実測データ（左右別）
+export interface FootMeasurement {
+  id: string;
+  foot_side:     'left' | 'right';
+  length_mm:     number | null;  // 足長（靴サイズの基準）
+  girth_mm:      number | null;  // 足囲（ワイズE/2E/3E）
+  width_mm:      number | null;  // 足幅（横幅実寸）
+  instep_mm:     number | null;  // 甲の高さ（インステップ）
+  heel_width_mm: number | null;  // かかと幅
+  toe_shape:     ToeShape | null;
+  measured_at:   string;
+}
+
+export const TOE_SHAPE_LABELS: Record<ToeShape, { ja: string; en: string; desc: string }> = {
+  egyptian: { ja: 'エジプト型', en: 'Egyptian', desc: '親指が最長' },
+  greek:    { ja: 'ギリシャ型', en: 'Greek',    desc: '人差し指が最長' },
+  square:   { ja: 'スクエア型', en: 'Square',   desc: '指先が横並び' },
+};
 
 export interface FootProfile {
   foot_type: FootType;

@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  Shoe, FootProfile, ShoeCategory, FitFeedback,
+  Shoe, FootProfile, FootMeasurement, ShoeCategory, FitFeedback,
+  ToeShape, SizeUnit, TOE_SHAPE_LABELS, SIZE_UNIT_LABELS,
+  convertSizeFromCm, convertSizeToCm,
   UserProfile, ArchHeight, PreferredFit,
   DEFAULT_USER_PROFILE, ARCH_HEIGHT_LABELS, PREFERRED_FIT_LABELS,
   BRANDS, CATEGORY_LABELS, CATEGORY_SIZE_ADJUSTMENT, FIT_FEEDBACK_LABELS,
@@ -11,6 +13,8 @@ import {
   addShoe, deleteShoe, updateShoe,
   loadFootProfile, saveFootProfile,
   loadShoes, loadUserProfile, saveUserProfile,
+  loadMeasurements, saveMeasurement, deleteMeasurement,
+  loadCustomBrands, addCustomBrand,
 } from '../shoecloak/store';
 import { getSizeRecommendation } from '../shoecloak/sizeRecommendation';
 import {
@@ -18,7 +22,24 @@ import {
   MessageCircle, Send, Sparkles, Search, X, ChevronDown,
   Upload, RefreshCw, Check, ShoppingBag, BarChart2,
   Box, Users, Edit2, DollarSign, Ruler, User, Globe, Save,
+  Smartphone, QrCode, AlertCircle, Info, ChevronRight,
 } from 'lucide-react';
+
+// ファイルをbase64に変換するユーティリティ
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload  = () => res(reader.result as string);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
+}
+
+// デバイス判定
+const UA = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(UA);
+const IS_IOS    = /iPhone|iPad|iPod/i.test(UA);
+const IS_ANDROID = /Android/i.test(UA);
 
 // ================================================================
 // 定数・型
@@ -191,60 +212,140 @@ function QuickDiagModal({ shoes, footProfile, onClose }: { shoes: Shoe[]; footPr
 }
 
 // ================================================================
-// 靴追加モーダル（単体）
+// 靴追加・編集モーダル（大文字変換・カスタムブランド・サイズ単位・画像3枚）
 // ================================================================
 function AddShoeModal({ onClose, onAdd, editShoe }: { onClose: () => void; onAdd: () => void; editShoe?: Shoe }) {
+  const stdBrandNames   = BRANDS.map(b => b.name.toUpperCase());
+  const [customBrands, setCustomBrands] = useState<string[]>(loadCustomBrands());
+  const allBrands       = [...stdBrandNames, ...customBrands].sort();
+
   const [form, setForm] = useState({
-    brand: editShoe?.brand ?? '', brandQuery: editShoe?.brand ?? '',
-    model: editShoe?.model ?? '', category: (editShoe?.category ?? 'sneakers') as ShoeCategory,
-    size: editShoe?.size?.toString() ?? '', fit_feedback: (editShoe?.fit_feedback ?? 'perfect') as FitFeedback,
-    purchase_date: editShoe?.purchase_date ?? '', notes: editShoe?.notes ?? '',
+    brand:         editShoe?.brand ?? '',
+    brandQuery:    editShoe?.brand ?? '',
+    model:         editShoe?.model ?? '',
+    category:      (editShoe?.category ?? 'sneakers') as ShoeCategory,
+    sizeInput:     editShoe?.size?.toString() ?? '',
+    sizeUnit:      'cm' as SizeUnit,
+    fit_feedback:  (editShoe?.fit_feedback ?? 'perfect') as FitFeedback,
+    purchase_date: editShoe?.purchase_date ?? '',
+    notes:         editShoe?.notes ?? '',
   });
+  const [photos, setPhotos] = useState<string[]>(editShoe?.photos ?? []);
   const [showDrop, setShowDrop] = useState(false);
   const [error, setError]       = useState('');
+  const [canAddCustom, setCanAddCustom] = useState(false);
 
-  const filteredBrands = BRANDS.filter(b => b.name.toLowerCase().includes(form.brandQuery.toLowerCase()));
+  const filteredBrands = allBrands.filter(b => b.toLowerCase().includes(form.brandQuery.toLowerCase()));
+
+  const handleBrandQuery = (q: string) => {
+    const upper = q.toUpperCase();
+    setForm(p => ({ ...p, brandQuery: upper, brand: '' }));
+    setShowDrop(true);
+    setCanAddCustom(upper.length > 1 && !allBrands.includes(upper));
+  };
+
+  const handleAddCustomBrand = () => {
+    const upper = form.brandQuery.toUpperCase();
+    addCustomBrand(upper);
+    const updated = loadCustomBrands();
+    setCustomBrands(updated);
+    setForm(p => ({ ...p, brand: upper, brandQuery: upper }));
+    setShowDrop(false);
+    setCanAddCustom(false);
+  };
+
+  const handlePhotoAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || photos.length >= 3) return;
+    const b64 = await fileToBase64(file);
+    setPhotos(p => [...p, b64]);
+  };
 
   const handleSubmit = () => {
-    if (!form.brand || !form.size) { setError('ブランドとサイズは必須です'); return; }
-    const data = { brand: form.brand, model: form.model || undefined, category: form.category, size: parseFloat(form.size), fit_feedback: form.fit_feedback, purchase_date: form.purchase_date || undefined, notes: form.notes || undefined, status: 'active' as const };
+    if (!form.brand || !form.sizeInput) { setError('ブランドとサイズは必須です'); return; }
+    const sizeCm = convertSizeToCm(parseFloat(form.sizeInput), form.sizeUnit);
+    const data = {
+      brand:         form.brand.toUpperCase(),
+      model:         form.model ? form.model.toUpperCase() : undefined,
+      category:      form.category,
+      size:          sizeCm,
+      fit_feedback:  form.fit_feedback,
+      purchase_date: form.purchase_date || undefined,
+      notes:         form.notes || undefined,
+      photos:        photos.length > 0 ? photos : undefined,
+      status:        'active' as const,
+    };
     if (editShoe) { updateShoe(editShoe.id, data); } else { addShoe(data); }
     onAdd();
+  };
+
+  // サイズ入力の表示値（単位切り替え時に再計算）
+  const handleUnitChange = (newUnit: SizeUnit) => {
+    const currentCm = convertSizeToCm(parseFloat(form.sizeInput) || 0, form.sizeUnit);
+    const converted = currentCm > 0 ? convertSizeFromCm(currentCm, newUnit).toString() : '';
+    setForm(p => ({ ...p, sizeUnit: newUnit, sizeInput: converted }));
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl p-8 my-4">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-base font-semibold text-gray-900">{editShoe ? '靴を編集' : '靴を追加'}</h2>
+          <h2 className="text-base font-semibold text-gray-900 tracking-widest uppercase">
+            {editShoe ? 'EDIT SHOE' : 'ADD SHOE'}
+          </h2>
           <button onClick={onClose}><X className="w-5 h-5 text-gray-400 hover:text-gray-900" strokeWidth={1.5} /></button>
         </div>
         <div className="space-y-4">
+
+          {/* ブランド */}
           <div className="relative">
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">ブランド <span className="text-gray-900">*</span></label>
-            <input type="text" value={form.brandQuery} onChange={e => { setForm(p => ({ ...p, brandQuery: e.target.value, brand: '' })); setShowDrop(true); }} onFocus={() => setShowDrop(true)} placeholder="例: Nike"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Brand / メーカー <span className="text-gray-900">*</span></label>
+            <input type="text" value={form.brandQuery}
+              onChange={e => handleBrandQuery(e.target.value)}
+              onFocus={() => setShowDrop(true)}
+              placeholder="NIKE"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm uppercase tracking-wider font-medium"
+            />
             {form.brand && <span className="absolute right-3 top-8 text-xs text-green-600 flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5} />{form.brand}</span>}
-            {showDrop && filteredBrands.length > 0 && !form.brand && (
-              <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto mt-1">
-                {filteredBrands.map(b => (
-                  <button key={b.name} onClick={() => { setForm(p => ({ ...p, brand: b.name, brandQuery: b.name })); setShowDrop(false); }}
-                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex justify-between">
-                    <span>{b.name}</span>
-                    <span className="text-xs text-gray-400">{b.width_tendency === 'wide' ? '幅広' : b.width_tendency === 'narrow' ? '細め' : '標準'}</span>
+            {showDrop && (
+              <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto mt-1">
+                {filteredBrands.map(b => {
+                  const std = BRANDS.find(s => s.name.toUpperCase() === b);
+                  return (
+                    <button key={b} onClick={() => { setForm(p => ({ ...p, brand: b, brandQuery: b })); setShowDrop(false); setCanAddCustom(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex justify-between items-center">
+                      <span className="font-medium tracking-wider">{b}</span>
+                      {std && <span className="text-xs text-gray-400">{std.width_tendency === 'wide' ? '幅広' : std.width_tendency === 'narrow' ? '細め' : '標準'}</span>}
+                      {!std && <span className="text-xs text-blue-500">カスタム</span>}
+                    </button>
+                  );
+                })}
+                {/* カスタムブランド追加 */}
+                {canAddCustom && (
+                  <button onClick={handleAddCustomBrand}
+                    className="w-full text-left px-4 py-3 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2 border-t border-gray-100">
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2} />
+                    「{form.brandQuery}」を新規メーカーとして登録する
                   </button>
-                ))}
+                )}
               </div>
             )}
           </div>
+
+          {/* モデル名 */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">モデル名（任意）</label>
-            <input type="text" value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} placeholder="例: Air Max 90"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Model Name / 商品名（任意）</label>
+            <input type="text" value={form.model}
+              onChange={e => setForm(p => ({ ...p, model: e.target.value.toUpperCase() }))}
+              placeholder="AIR MAX 90"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm uppercase tracking-wider"
+            />
           </div>
+
+          {/* カテゴリ + サイズ（単位切り替え付き） */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">カテゴリ</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Category</label>
               <div className="relative">
                 <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value as ShoeCategory }))}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-gray-900">
@@ -254,13 +355,35 @@ function AddShoeModal({ onClose, onAdd, editShoe }: { onClose: () => void; onAdd
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">サイズ (cm) <span className="text-gray-900">*</span></label>
-              <input type="number" step="0.5" min="20" max="35" value={form.size} onChange={e => setForm(p => ({ ...p, size: e.target.value }))} placeholder="26.5"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Size <span className="text-gray-900">*</span></label>
+                {/* 単位切り替え */}
+                <div className="flex border border-gray-200 rounded overflow-hidden">
+                  {(Object.keys(SIZE_UNIT_LABELS) as SizeUnit[]).map(u => (
+                    <button key={u} onClick={() => handleUnitChange(u)}
+                      className={`px-2 py-0.5 text-xs font-medium transition-colors ${form.sizeUnit === u ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                      {SIZE_UNIT_LABELS[u]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input type="number" step="0.5" min="1" max="50"
+                value={form.sizeInput}
+                onChange={e => setForm(p => ({ ...p, sizeInput: e.target.value }))}
+                placeholder={form.sizeUnit === 'cm' ? '26.5' : form.sizeUnit === 'us' ? '8.5' : '8.0'}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+              />
+              {form.sizeInput && form.sizeUnit !== 'cm' && (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  ≈ {convertSizeToCm(parseFloat(form.sizeInput), form.sizeUnit)}cm
+                </p>
+              )}
             </div>
           </div>
+
+          {/* フィット感 */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">フィット感</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Fit Feedback</label>
             <div className="grid grid-cols-5 gap-1">
               {(Object.entries(FIT_FEEDBACK_LABELS) as [FitFeedback, string][]).map(([key, label]) => (
                 <button key={key} onClick={() => setForm(p => ({ ...p, fit_feedback: key }))}
@@ -270,22 +393,51 @@ function AddShoeModal({ onClose, onAdd, editShoe }: { onClose: () => void; onAdd
               ))}
             </div>
           </div>
+
+          {/* 写真（最大3枚） */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Photos / 写真（最大3枚）</label>
+            <div className="flex gap-2">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="relative w-24 h-24 border-2 border-dashed border-gray-200 rounded-lg overflow-hidden">
+                  {photos[i] ? (
+                    <>
+                      <img src={photos[i]} className="w-full h-full object-cover" alt={`photo${i+1}`} />
+                      <button onClick={() => setPhotos(p => p.filter((_, idx) => idx !== i))}
+                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center">
+                        <X className="w-3 h-3" strokeWidth={2} />
+                      </button>
+                    </>
+                  ) : (
+                    <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
+                      <Upload className="w-5 h-5 text-gray-300 mb-1" strokeWidth={1.5} />
+                      <span className="text-xs text-gray-300">{i + 1}</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handlePhotoAdd} />
+                    </label>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 購入日・メモ */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">購入日（任意）</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Purchase Date</label>
               <input type="date" value={form.purchase_date} onChange={e => setForm(p => ({ ...p, purchase_date: e.target.value }))}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">メモ（任意）</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Notes / メモ</label>
               <input type="text" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="着心地など"
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
             </div>
           </div>
+
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-3 pt-2">
-            <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 py-3 rounded-lg hover:border-gray-900 text-sm font-medium transition-colors">キャンセル</button>
-            <button onClick={handleSubmit} className="flex-1 bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors">{editShoe ? '保存する' : '追加する'}</button>
+            <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 py-3 rounded-lg hover:border-gray-900 text-sm font-medium transition-colors uppercase tracking-wider">キャンセル</button>
+            <button onClick={handleSubmit} className="flex-1 bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors uppercase tracking-wider">{editShoe ? '保存する' : '追加する'}</button>
           </div>
         </div>
       </div>
@@ -309,7 +461,15 @@ function BulkAddModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => vo
   const handleSubmit = () => {
     const valid = entries.filter(e => e.brand && e.size);
     if (valid.length === 0) { setError('1足以上入力してください'); return; }
-    valid.forEach(e => addShoe({ brand: e.brand, model: e.model || undefined, category: 'sneakers', size: parseFloat(e.size), fit_feedback: e.fit_feedback, status: 'active' }));
+    // ブランド・モデルは大文字で保存（表記揺れ防止）
+    valid.forEach(e => addShoe({
+      brand: e.brand.toUpperCase(),
+      model: e.model ? e.model.toUpperCase() : undefined,
+      category: 'sneakers',
+      size: parseFloat(e.size),
+      fit_feedback: e.fit_feedback,
+      status: 'active',
+    }));
     onAdd();
   };
 
@@ -359,21 +519,28 @@ function BulkAddModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => vo
               <div className="grid grid-cols-2 gap-4 mb-4">
                 {/* Brand */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Brand <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <select value={entry.brand} onChange={e => updateEntry(i, { brand: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm appearance-none bg-white">
-                      <option value="">Select brand...</option>
-                      {BRANDS.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={1.5} />
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5 uppercase tracking-wider">Brand / メーカー <span className="text-red-500">*</span></label>
+                  <input
+                    list={`bulk-brands-${i}`}
+                    value={entry.brand}
+                    onChange={e => updateEntry(i, { brand: e.target.value.toUpperCase() })}
+                    placeholder="NIKE"
+                    className="w-full px-4 py-3 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm uppercase font-medium tracking-wider"
+                  />
+                  <datalist id={`bulk-brands-${i}`}>
+                    {[...BRANDS.map(b => b.name.toUpperCase()), ...loadCustomBrands()].map(b => (
+                      <option key={b} value={b} />
+                    ))}
+                  </datalist>
                 </div>
                 {/* 商品名 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">商品名（任意）</label>
-                  <input type="text" value={entry.model} onChange={e => updateEntry(i, { model: e.target.value })} placeholder="例: Air Max 90"
-                    className="w-full px-4 py-3 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5 uppercase tracking-wider">Model Name / 商品名（任意）</label>
+                  <input type="text" value={entry.model}
+                    onChange={e => updateEntry(i, { model: e.target.value.toUpperCase() })}
+                    placeholder="AIR MAX 90"
+                    className="w-full px-4 py-3 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm uppercase tracking-wider"
+                  />
                 </div>
               </div>
 
@@ -514,64 +681,423 @@ function HomeView({ shoes, footProfile, onTabChange }: { shoes: Shoe[]; footProf
 // ================================================================
 // ② Shoe Cloak ダッシュボード（Bolt Dashboard デザイン）
 // ================================================================
-function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: Shoe[]; onRefresh: () => void; footProfile: FootProfile | null; onTabChange: (t: TabType) => void }) {
-  const [filterGroup, setFilterGroup] = useState<ShoeGroup>('all');
-  const [showBulk, setShowBulk]       = useState(false);
-  const [editShoe, setEditShoe]       = useState<Shoe | undefined>(undefined);
+// ================================================================
+// 足のサイズ測定モーダル（QRコード / カメラ / 手動入力）
+// ================================================================
+type ToeShapeKey = ToeShape;
+
+interface MeasurementFormState {
+  foot_side: 'left' | 'right';
+  length_mm: string;
+  girth_mm: string;
+  width_mm: string;
+  instep_mm: string;
+  heel_width_mm: string;
+  toe_shape: ToeShapeKey | '';
+}
+const EMPTY_MEAS_FORM = (): MeasurementFormState => ({
+  foot_side: 'left', length_mm: '', girth_mm: '', width_mm: '', instep_mm: '', heel_width_mm: '', toe_shape: '',
+});
+
+function FootMeasurementModal({ onClose }: { onClose: () => void }) {
+  const [measurements, setMeasurements] = useState<FootMeasurement[]>(loadMeasurements());
+  const [showForm, setShowForm]         = useState(false);
+  const [form, setForm]                 = useState<MeasurementFormState>(EMPTY_MEAS_FORM());
+  const [formError, setFormError]       = useState('');
+
+  const left  = measurements.find(m => m.foot_side === 'left');
+  const right = measurements.find(m => m.foot_side === 'right');
+
+  const handleSave = () => {
+    if (!form.length_mm) { setFormError('足長は必須です'); return; }
+    saveMeasurement({
+      foot_side:     form.foot_side,
+      length_mm:     form.length_mm     ? parseFloat(form.length_mm)     : null,
+      girth_mm:      form.girth_mm      ? parseFloat(form.girth_mm)      : null,
+      width_mm:      form.width_mm      ? parseFloat(form.width_mm)      : null,
+      instep_mm:     form.instep_mm     ? parseFloat(form.instep_mm)     : null,
+      heel_width_mm: form.heel_width_mm ? parseFloat(form.heel_width_mm) : null,
+      toe_shape:     form.toe_shape     ? form.toe_shape as ToeShape     : null,
+    });
+    setMeasurements(loadMeasurements());
+    setShowForm(false);
+    setForm(EMPTY_MEAS_FORM());
+  };
+
+  const handleDelete = (side: 'left' | 'right') => {
+    if (!window.confirm(`${side === 'left' ? '左' : '右'}足の測定データを削除しますか？`)) return;
+    deleteMeasurement(side);
+    setMeasurements(loadMeasurements());
+  };
+
+  const mmToApproxCm = (mm: number | null) => mm ? (mm / 10).toFixed(1) : '—';
+
+  const MeasCard = ({ m, side }: { m: FootMeasurement | undefined; side: 'left' | 'right' }) => (
+    <div className="flex-1 border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-900">
+          {side === 'left' ? '左足 / Left Foot' : '右足 / Right Foot'}
+        </h3>
+        {m ? (
+          <div className="flex gap-2">
+            <button onClick={() => { setForm({ foot_side: side, length_mm: m.length_mm?.toString() ?? '', girth_mm: m.girth_mm?.toString() ?? '', width_mm: m.width_mm?.toString() ?? '', instep_mm: m.instep_mm?.toString() ?? '', heel_width_mm: m.heel_width_mm?.toString() ?? '', toe_shape: m.toe_shape ?? '' }); setShowForm(true); }}
+              className="text-xs border border-gray-200 px-3 py-1 hover:border-gray-900 transition-colors">編集</button>
+            <button onClick={() => handleDelete(side)} className="text-xs text-red-400 hover:text-red-600">削除</button>
+          </div>
+        ) : (
+          <button onClick={() => { setForm({ ...EMPTY_MEAS_FORM(), foot_side: side }); setShowForm(true); }}
+            className="text-xs border border-gray-900 bg-gray-900 text-white px-3 py-1 hover:bg-gray-700 transition-colors">追加</button>
+        )}
+      </div>
+      {m ? (
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between"><span className="text-gray-500">足長</span><span className="font-medium">{m.length_mm}mm <span className="text-gray-400 text-xs">({mmToApproxCm(m.length_mm)}cm)</span></span></div>
+          {m.girth_mm      && <div className="flex justify-between"><span className="text-gray-500">足囲</span><span className="font-medium">{m.girth_mm}mm</span></div>}
+          {m.width_mm      && <div className="flex justify-between"><span className="text-gray-500">足幅</span><span className="font-medium">{m.width_mm}mm</span></div>}
+          {m.instep_mm     && <div className="flex justify-between"><span className="text-gray-500">甲の高さ</span><span className="font-medium">{m.instep_mm}mm</span></div>}
+          {m.heel_width_mm && <div className="flex justify-between"><span className="text-gray-500">かかと幅</span><span className="font-medium">{m.heel_width_mm}mm</span></div>}
+          {m.toe_shape     && <div className="flex justify-between"><span className="text-gray-500">指の形</span><span className="font-medium">{TOE_SHAPE_LABELS[m.toe_shape].ja}</span></div>}
+          <p className="text-xs text-gray-400 pt-2">測定日: {new Date(m.measured_at).toLocaleDateString('ja-JP')}</p>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-400">測定データがありません</p>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-white w-full max-w-3xl my-8 rounded-xl shadow-2xl overflow-hidden">
+
+        {/* ヘッダー */}
+        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 tracking-wide">足の測定 / Foot Measurements</h2>
+            <p className="text-sm text-gray-400 mt-0.5">足の形を測定して、最適なシューズサイズを見つけましょう</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => { setForm(EMPTY_MEAS_FORM()); setShowForm(true); }}
+              className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-700 transition-colors rounded-lg">
+              <Ruler className="w-4 h-4" strokeWidth={1.5} />測定を追加
+            </button>
+            <button onClick={onClose}><X className="w-5 h-5 text-gray-400 hover:text-gray-900" strokeWidth={1.5} /></button>
+          </div>
+        </div>
+
+        <div className="p-8 space-y-8">
+          {/* 測定ヒント */}
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3">
+            <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+            <div className="text-sm text-blue-800 space-y-1">
+              <p className="font-semibold">測定のポイント</p>
+              <ul className="list-disc list-inside space-y-0.5 text-blue-700">
+                <li>裸足・立位・夕方に測定する（朝より夕方の足がわずかに大きい）</li>
+                <li>左右を測定し、大きい方を基準にする</li>
+                <li>壁に踵をつけて立ち、つま先までの長さを測定</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* 左右足データ */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <MeasCard m={left}  side="left"  />
+            <MeasCard m={right} side="right" />
+          </div>
+
+          {/* LiDAR / QR / カメラ セクション */}
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="bg-gray-900 text-white px-6 py-4">
+              <h3 className="font-bold tracking-wide">より正確に測定する / Precision Measurement</h3>
+              <p className="text-sm text-gray-300 mt-1">iOSのLiDARセンサーで自動測定</p>
+            </div>
+            <div className="p-6">
+              {!IS_MOBILE ? (
+                /* PC: QRコード */
+                <div className="flex flex-col md:flex-row items-center gap-8">
+                  <img
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https://apps.apple.com/jp/app"
+                    alt="QR Code"
+                    className="w-40 h-40 border border-gray-200 rounded-lg"
+                  />
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-2 text-gray-900 font-semibold">
+                      <Smartphone className="w-5 h-5" strokeWidth={1.5} />
+                      iPhoneでLiDAR測定アプリをダウンロード
+                    </div>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      左のQRコードをiPhoneのカメラで読み込むとApp Storeが開きます。<br />
+                      <strong>iPhone 12 Pro以降</strong>（または iPad Pro）のLiDARスキャナーを使って、
+                      足の形を3D計測することで正確な足長・足幅・甲の高さを自動取得できます。
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      ※ LiDARセンサー非搭載のiPhoneでは、カメラを使った近似計測を行います
+                    </p>
+                  </div>
+                </div>
+              ) : IS_IOS ? (
+                /* iOS: カメラボタン */
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <Smartphone className="w-5 h-5 text-gray-700 mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                    <div>
+                      <p className="font-semibold text-gray-900">iPhoneでLiDAR測定</p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        このボタンからカメラを起動して足を撮影してください。<br />
+                        <strong>iPhone 12 Pro以降</strong>はLiDARセンサーで自動的に3D計測します。
+                      </p>
+                    </div>
+                  </div>
+                  <label className="block">
+                    <div className="w-full bg-gray-900 text-white text-center py-3 rounded-lg font-medium text-sm hover:bg-gray-700 transition-colors cursor-pointer flex items-center justify-center gap-2">
+                      <Smartphone className="w-4 h-4" strokeWidth={1.5} />カメラを起動して測定する
+                    </div>
+                    <input type="file" accept="image/*" capture="environment" className="hidden"
+                      onChange={() => { alert('撮影後、測定値を手動で入力してください。（AI自動解析は近日実装予定）'); setShowForm(true); }} />
+                  </label>
+                </div>
+              ) : (
+                /* Android */
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+                  <div>
+                    <p className="font-semibold text-gray-900">Androidをお使いの方</p>
+                    <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                      現在、LiDARによる自動測定はiOS専用です。<br />
+                      メジャーを使って<strong>下記の測定方法</strong>を参考に測定値を手動でご入力ください。
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 詳細な測定方法 */}
+          <div>
+            <h3 className="font-bold text-gray-900 mb-4">測定方法の詳細 / How to Measure</h3>
+            <div className="space-y-4">
+              {[
+                {
+                  n: 1, en: 'FOOT LENGTH', ja: '足長', unit: 'mm',
+                  desc: '壁に踵をぴったり付けて立ち、最も長い指（親指または人差し指）の先端から踵の後端までを直線で測ります。靴のサイズはこの値を基準にします。',
+                  tip: '朝より夕方の方がわずかに大きくなります。夕方に測るのが理想です。',
+                },
+                {
+                  n: 2, en: 'GIRTH', ja: '足囲（ガース）', unit: 'mm',
+                  desc: '親指の付け根の骨（拇趾球）から小指の付け根の骨（小趾球）を通るようにメジャーで1周巻いて測定します。JIS規格のワイズ（E/2E/3E）はこの値で決まります。',
+                  tip: 'E≈220mm、2E≈230mm、3E≈240mm（26cmの場合の目安）',
+                },
+                {
+                  n: 3, en: 'FOOT WIDTH', ja: '足幅', unit: 'mm',
+                  desc: '拇趾球（親指付け根の骨）から小趾球（小指付け根の骨）の横幅を直線で測ります。足囲が同じでも足幅が広い人は幅広の靴が必要になることがあります。',
+                  tip: '足幅と足囲は異なります。足囲は周囲長、足幅は横の直線距離です。',
+                },
+                {
+                  n: 4, en: 'INSTEP', ja: '甲の高さ（インステップ）', unit: 'mm',
+                  desc: '足首の前側（甲の最も高い部分）から床までの高さを測ります。甲が高い方は甲低の靴（ローファーなど）では圧迫感が出やすく、同じサイズでも合わないことがあります。',
+                  tip: 'サイズを上げても甲の圧迫が解消しない場合、靴の木型の問題の可能性があります。',
+                },
+                {
+                  n: 5, en: 'HEEL WIDTH', ja: 'かかと幅', unit: 'mm',
+                  desc: '踵の最も幅広い部分の横幅を測ります。かかとが細い方は、既製靴でかかとが浮きやすく「パカパカする」と感じることがあります。',
+                  tip: 'かかとが浮く場合はインソールやかかとパッドで調整できることがあります。',
+                },
+              ].map(item => (
+                <div key={item.n} className="border border-gray-100 rounded-lg p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="w-8 h-8 bg-gray-900 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">{item.n}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-semibold text-gray-900">{item.en} <span className="text-gray-400 font-normal">/ {item.ja}</span></p>
+                        <span className="text-xs text-gray-400 border border-gray-200 px-2 py-0.5 rounded">単位: {item.unit}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
+                      <div className="mt-2 flex items-start gap-1.5">
+                        <ChevronRight className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                        <p className="text-xs text-blue-600">{item.tip}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* TOE SHAPE */}
+              <div className="border border-gray-100 rounded-lg p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-8 h-8 bg-gray-900 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">6</div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900 mb-1">TOE SHAPE <span className="text-gray-400 font-normal">/ 指の形（トゥ形状）</span></p>
+                    <p className="text-sm text-gray-600 leading-relaxed mb-3">親指〜小指の長さの関係を確認します。靴の木型の形状との相性を判断するために重要です。</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {(Object.entries(TOE_SHAPE_LABELS) as [ToeShape, typeof TOE_SHAPE_LABELS[ToeShape]][]).map(([k, v]) => (
+                        <div key={k} className="border border-gray-200 rounded-lg p-3 text-center">
+                          <p className="font-medium text-sm text-gray-900">{v.ja}</p>
+                          <p className="text-xs text-gray-400">{v.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex items-start gap-1.5">
+                      <ChevronRight className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                      <p className="text-xs text-blue-600">エジプト型はポインテッドトゥ、ギリシャ型はアーモンドトゥ、スクエア型はスクエアトゥが相性良いとされます。</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 測定入力フォーム（サブモーダル） */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl my-4">
+            {/* ヘッダー */}
+            <div className="px-8 py-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 uppercase tracking-widest">ADD MEASUREMENT / 足の測定を追加</h3>
+                  <p className="text-sm text-gray-400 mt-0.5">裸足・立位・夕方に測定 / 左右測定し大きい方を基準に</p>
+                </div>
+                <button onClick={() => { setShowForm(false); setFormError(''); }}>
+                  <X className="w-5 h-5 text-gray-400 hover:text-gray-900" strokeWidth={1.5} />
+                </button>
+              </div>
+            </div>
+            <div className="px-8 py-6 space-y-5">
+              {/* 足選択 */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">FOOT / 測定する足</label>
+                <div className="grid grid-cols-2 gap-0 border border-gray-200 rounded-lg overflow-hidden">
+                  {(['left', 'right'] as const).map(side => (
+                    <button key={side} onClick={() => setForm(p => ({ ...p, foot_side: side }))}
+                      className={`py-3.5 text-sm font-semibold transition-colors ${form.foot_side === side ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                      {side === 'left' ? '左足 / LEFT' : '右足 / RIGHT'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 各測定値 */}
+              {[
+                { key: 'length_mm',     n: 1, en: 'FOOT LENGTH',   ja: '足長',          req: true,  ph: '265', desc: '靴の基本サイズ（cm）を決める数値' },
+                { key: 'girth_mm',      n: 2, en: 'GIRTH',         ja: '足囲',          req: false, ph: '230', desc: 'E・2E・3Eのワイズ（横方向の太さ）を決める数値' },
+                { key: 'width_mm',      n: 3, en: 'FOOT WIDTH',    ja: '足幅',          req: false, ph: '102', desc: '横幅の実寸を確認する数値（同ワイズでも圧迫が変わる）' },
+                { key: 'instep_mm',     n: 4, en: 'INSTEP',        ja: '甲の高さ',      req: false, ph: '65',  desc: '足の厚み・ボリューム確認。ここが合わないとサイズを上げても圧迫が解消しないことがある' },
+                { key: 'heel_width_mm', n: 5, en: 'HEEL WIDTH',    ja: 'かかと幅',      req: false, ph: '68',  desc: '靴の脱げやすさ・ホールド感に関係。細いと既製靴でかかとが浮きやすくなる' },
+              ].map(f => (
+                <div key={f.key} className="border border-gray-100 rounded-xl p-5">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="w-6 h-6 bg-gray-900 text-white rounded-full flex items-center justify-center text-xs font-bold">{f.n}</span>
+                        <span className="font-semibold text-gray-900 text-sm">{f.en} <span className="text-gray-400 font-normal">/ {f.ja}{f.req && <span className="text-red-500 ml-1">*</span>}</span></span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">{f.desc}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3">
+                    <input type="number" min="0" value={(form as Record<string, string>)[f.key]}
+                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                      placeholder={f.ph}
+                      className="flex-1 px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm" />
+                    <span className="text-sm text-gray-400 w-10">mm</span>
+                  </div>
+                </div>
+              ))}
+
+              {/* TOE SHAPE */}
+              <div className="border border-gray-100 rounded-xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-6 h-6 bg-gray-900 text-white rounded-full flex items-center justify-center text-xs font-bold">6</span>
+                  <span className="font-semibold text-gray-900 text-sm">TOE SHAPE <span className="text-gray-400 font-normal">/ 指の形（トゥ形状）</span></span>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">靴の木型との相性を判断するための形状</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.entries(TOE_SHAPE_LABELS) as [ToeShape, typeof TOE_SHAPE_LABELS[ToeShape]][]).map(([k, v]) => (
+                    <button key={k} onClick={() => setForm(p => ({ ...p, toe_shape: p.toe_shape === k ? '' : k }))}
+                      className={`border rounded-lg py-3 text-center transition-colors ${form.toe_shape === k ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 hover:border-gray-400'}`}>
+                      <p className="font-medium text-sm">{v.ja}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{v.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {formError && <p className="text-xs text-red-500">{formError}</p>}
+            </div>
+            <div className="grid grid-cols-2 border-t border-gray-100">
+              <button onClick={() => { setShowForm(false); setFormError(''); }}
+                className="py-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors uppercase tracking-widest border-r border-gray-100">CANCEL</button>
+              <button onClick={handleSave}
+                className={`py-4 text-sm font-medium uppercase tracking-widest transition-colors ${form.length_mm ? 'bg-gray-900 text-white hover:bg-gray-700' : 'bg-gray-200 text-gray-400'}`}>SAVE</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ================================================================
+// ② Shoe Cloak ダッシュボード
+// ================================================================
+function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange: _onTabChange }: { shoes: Shoe[]; onRefresh: () => void; footProfile: FootProfile | null; onTabChange: (t: TabType) => void }) {
+  const [filterGroup, setFilterGroup]         = useState<ShoeGroup>('all');
+  const [showBulk, setShowBulk]               = useState(false);
+  const [editShoe, setEditShoe]               = useState<Shoe | undefined>(undefined);
+  const [showMeasurement, setShowMeasurement] = useState(false);
+  const [sizeUnit, setSizeUnit]               = useState<SizeUnit>('cm');
 
   const activeShoes = shoes.filter(s => s.status === 'active');
   const filtered = filterGroup === 'all'
     ? activeShoes
     : activeShoes.filter(s => SHOE_GROUP_MAP[s.category] === filterGroup);
 
-  const handleSell = (id: string) => { updateShoe(id, { status: 'sold' }); onRefresh(); };
+  const handleSell   = (id: string) => { updateShoe(id, { status: 'sold' }); onRefresh(); };
   const handleDelete = (id: string) => { if (!window.confirm('削除しますか？')) return; deleteShoe(id); onRefresh(); };
 
-  const footTypeLabel = footProfile
-    ? footProfile.foot_type === 'wide'   ? '幅広・甲高タイプ'
-    : footProfile.foot_type === 'narrow' ? '細め・スリムタイプ'
-    :                                       '標準タイプ'
-    : null;
+  const displaySize = (cmSize: number): string => {
+    const converted = convertSizeFromCm(cmSize, sizeUnit);
+    return `${converted} ${SIZE_UNIT_LABELS[sizeUnit]}`;
+  };
 
   return (
     <div>
-      {/* ── 足のサイズ測定バナー（目立つ） ── */}
+      {/* ── 足のサイズ測定バナー ── */}
       <div className="flex items-stretch gap-0 border-2 border-gray-900 mb-8 overflow-hidden">
         <button
-          onClick={() => onTabChange('profile')}
+          onClick={() => setShowMeasurement(true)}
           className="flex items-center gap-3 bg-gray-900 text-white px-7 py-5 hover:bg-gray-700 transition-colors font-semibold text-sm flex-shrink-0"
         >
           <Ruler className="w-5 h-5" strokeWidth={1.5} />
-          <span>足のサイズを<br />測定・登録する</span>
+          <span>足のサイズを<br />測定する</span>
         </button>
         <div className="flex-1 px-6 py-4 flex flex-col justify-center">
-          {footTypeLabel ? (
-            <>
-              <p className="text-xs text-gray-400 mb-0.5">あなたの特徴は...</p>
-              <p className="font-bold text-gray-900 text-lg leading-tight">{footTypeLabel}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                通常サイズ: {footProfile?.default_size}cm
-                {footProfile?.foot_width_cm ? `　幅: ${footProfile.foot_width_cm}cm` : ''}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="font-semibold text-gray-700 text-sm">足の基礎情報を登録するとサイズ診断の精度が上がります</p>
-              <p className="text-xs text-gray-400 mt-1">左右の足サイズ・足幅・アーチの高さなどを記録</p>
-            </>
-          )}
+          <p className="font-semibold text-gray-700 text-sm">足の実測データを登録するとサイズ診断の精度が上がります</p>
+          <p className="text-xs text-gray-400 mt-1">左右の足長・足囲・足幅・甲の高さ・かかと幅を記録</p>
         </div>
       </div>
 
-      {/* ── タイトル + 靴を追加ボタン ── */}
+      {/* ── タイトル + サイズ単位 + 靴を追加ボタン ── */}
       <div className="flex items-end justify-between mb-6">
         <div>
           <h2 className="text-3xl font-bold text-gray-900 tracking-wide">SHOE CLOAK</h2>
           <p className="text-sm text-gray-400 mt-1">
             {activeShoes.length}足のコレクション / {activeShoes.length} pairs in collection
           </p>
+          {/* サイズ単位切り替え */}
+          <div className="flex items-center gap-2 mt-3">
+            <span className="text-xs text-gray-500">表示サイズ:</span>
+            <div className="flex border border-gray-200 rounded overflow-hidden">
+              {(Object.keys(SIZE_UNIT_LABELS) as SizeUnit[]).map(u => (
+                <button key={u} onClick={() => setSizeUnit(u)}
+                  className={`px-3 py-1 text-xs font-bold transition-colors ${sizeUnit === u ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  {SIZE_UNIT_LABELS[u]}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        {/* まとめて登録 = 靴を追加 */}
         <div className="text-right">
           <button
             onClick={() => setShowBulk(true)}
@@ -610,12 +1136,24 @@ function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: 
           {filtered.map(shoe => {
             const group = SHOE_GROUP_MAP[shoe.category];
             const groupLabel = GROUP_LABELS[group];
-            const sizeDisplay = shoe.size % 1 === 0 ? `${shoe.size}cm` : `${shoe.size}cm`;
             return (
               <div key={shoe.id} className="border border-gray-200 hover:border-gray-300 transition-colors overflow-hidden">
-                {/* 靴画像プレースホルダー */}
-                <div className="bg-gray-50 h-52 flex items-center justify-center border-b border-gray-100">
-                  <Box className="w-14 h-14 text-gray-300" strokeWidth={1} />
+                {/* 靴画像（登録済みなら表示、なければプレースホルダー） */}
+                <div className="bg-gray-50 h-52 flex items-center justify-center border-b border-gray-100 overflow-hidden relative">
+                  {shoe.photos && shoe.photos.length > 0 ? (
+                    <>
+                      <img src={shoe.photos[0]} className="w-full h-full object-cover" alt={shoe.model ?? shoe.brand} />
+                      {shoe.photos.length > 1 && (
+                        <div className="absolute bottom-2 right-2 flex gap-1">
+                          {shoe.photos.slice(1).map((p, i) => (
+                            <img key={i} src={p} className="w-10 h-10 object-cover border-2 border-white rounded shadow-sm" alt="" />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Box className="w-14 h-14 text-gray-300" strokeWidth={1} />
+                  )}
                 </div>
                 {/* 靴情報 */}
                 <div className="p-5">
@@ -624,7 +1162,7 @@ function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: 
                       <p className="font-bold text-gray-900 text-lg leading-tight">{shoe.brand}</p>
                       {shoe.model && <p className="text-sm text-gray-400">{shoe.model}</p>}
                     </div>
-                    <p className="font-bold text-gray-900 text-lg">{sizeDisplay}</p>
+                    <p className="font-bold text-gray-900 text-lg">{displaySize(shoe.size)}</p>
                   </div>
                   <div className="space-y-1 text-sm text-gray-500 mb-4">
                     <div className="flex justify-between">
@@ -663,8 +1201,9 @@ function ShoeCloakView({ shoes, onRefresh, footProfile, onTabChange }: { shoes: 
         </div>
       )}
 
-      {editShoe && <AddShoeModal onClose={() => setEditShoe(undefined)} onAdd={() => { onRefresh(); setEditShoe(undefined); }} editShoe={editShoe} />}
-      {showBulk && <BulkAddModal onClose={() => setShowBulk(false)} onAdd={() => { onRefresh(); setShowBulk(false); }} />}
+      {editShoe         && <AddShoeModal onClose={() => setEditShoe(undefined)} onAdd={() => { onRefresh(); setEditShoe(undefined); }} editShoe={editShoe} />}
+      {showBulk         && <BulkAddModal onClose={() => setShowBulk(false)} onAdd={() => { onRefresh(); setShowBulk(false); }} />}
+      {showMeasurement  && <FootMeasurementModal onClose={() => setShowMeasurement(false)} />}
     </div>
   );
 }
