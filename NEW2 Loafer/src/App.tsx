@@ -26,7 +26,7 @@ import AccountManagement from './pages/AccountManagement';
 import Analytics from './pages/Analytics';
 import OrderManagement from './pages/OrderManagement';
 import WardrobePage from './wardrobe/WardrobePage';
-import MeasurementManagement from './pages/MeasurementManagement';
+import ShoecloakAdmin from './pages/ShoecloakAdmin';
 import InfoPage from './pages/InfoPage';
 import Ambassador from './pages/Ambassador';
 import OnboardingModal from './wardrobe/components/OnboardingModal';
@@ -130,10 +130,10 @@ function App() {
           }
         />
         <Route
-          path="/admin/measurement"
+          path="/admin/shoecloak"
           element={
             <ProtectedRoute adminOnly>
-              <MeasurementManagement />
+              <ShoecloakAdmin />
             </ProtectedRoute>
           }
         />
