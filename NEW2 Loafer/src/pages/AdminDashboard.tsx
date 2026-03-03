@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Package, Image, Users, Shield, BarChart3, ShoppingBag, Shirt } from 'lucide-react';
+import { Package, Image, Users, Shield, BarChart3, ShoppingBag, Shirt, Ruler } from 'lucide-react';
 
 export default function AdminDashboard() {
   const adminSections = [
@@ -28,6 +28,15 @@ export default function AdminDashboard() {
       color: 'border-gray-900',
     },
     {
+      title: '足計測管理',
+      subtitle: 'Measurement Management',
+      description: '測定フローの起動・ユーザー紐付け・結果確認・Gemini AI解析',
+      icon: Ruler,
+      path: '/admin/measurement',
+      color: 'border-gray-900',
+      badge: 'NEW',
+    },
+    {
       title: 'アカウント管理',
       subtitle: 'Account Management',
       description: 'ユーザーと管理者権限を管理します',
@@ -49,14 +58,6 @@ export default function AdminDashboard() {
       description: '注文状況の確認と発送管理を行います',
       icon: ShoppingBag,
       path: '/admin/orders',
-      color: 'border-gray-900',
-    },
-    {
-      title: 'ワードローブ',
-      subtitle: 'Wardrobe Management',
-      description: 'ワードローブアイテムの管理、スタイリング、サイズ推奨',
-      icon: Shirt,
-      path: '/admin/wardrobe',
       color: 'border-gray-900',
     },
   ];
@@ -81,8 +82,13 @@ export default function AdminDashboard() {
             <Link
               key={section.path}
               to={section.path}
-              className="group border border-gray-200 p-8 hover:border-gray-900 transition-all duration-300"
+              className="group border border-gray-200 p-8 hover:border-gray-900 transition-all duration-300 relative"
             >
+              {'badge' in section && section.badge && (
+                <span className="absolute top-4 right-4 bg-gray-900 text-white text-xs tracking-widest px-2 py-0.5">
+                  {section.badge}
+                </span>
+              )}
               <div className={`w-14 h-14 border ${section.color} flex items-center justify-center mb-6 group-hover:bg-gray-900 transition-colors duration-300`}>
                 <section.icon className="w-6 h-6 text-gray-900 group-hover:text-white transition-colors duration-300" strokeWidth={1.5} />
               </div>

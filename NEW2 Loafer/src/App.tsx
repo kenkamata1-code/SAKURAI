@@ -26,6 +26,7 @@ import AccountManagement from './pages/AccountManagement';
 import Analytics from './pages/Analytics';
 import OrderManagement from './pages/OrderManagement';
 import WardrobePage from './wardrobe/WardrobePage';
+import MeasurementManagement from './pages/MeasurementManagement';
 import InfoPage from './pages/InfoPage';
 import Ambassador from './pages/Ambassador';
 import OnboardingModal from './wardrobe/components/OnboardingModal';
@@ -125,6 +126,14 @@ function App() {
           element={
             <ProtectedRoute adminOnly>
               <WardrobePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/measurement"
+          element={
+            <ProtectedRoute adminOnly>
+              <MeasurementManagement />
             </ProtectedRoute>
           }
         />
