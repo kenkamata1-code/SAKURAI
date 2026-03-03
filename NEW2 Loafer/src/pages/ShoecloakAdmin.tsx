@@ -25,8 +25,17 @@ interface ChatMessage {
 }
 
 // ================================================================
-// 簡易診断モーダル（トップ画面の「簡易サイズチェック」）
+// 簡易診断モーダル（Boltデザイン準拠）
 // ================================================================
+
+interface QuickShoeEntry {
+  brand: string;
+  size: string;
+  fit_feedback: FitFeedback;
+}
+
+const EMPTY_ENTRY = (): QuickShoeEntry => ({ brand: '', size: '', fit_feedback: 'perfect' });
+
 interface QuickDiagModalProps {
   shoes: Shoe[];
   footProfile: FootProfile | null;
@@ -34,144 +43,274 @@ interface QuickDiagModalProps {
 }
 
 function QuickDiagModal({ shoes, footProfile, onClose }: QuickDiagModalProps) {
-  const [brand, setBrand]           = useState('');
-  const [brandQuery, setBrandQuery] = useState('');
-  const [category, setCategory]     = useState<ShoeCategory>('sneakers');
-  const [currentSize, setCurrentSize] = useState(footProfile?.default_size?.toString() ?? '');
-  const [showDrop, setShowDrop]     = useState(false);
-  const [result, setResult]         = useState<ReturnType<typeof getSizeRecommendation> | null>(null);
+  const [entries, setEntries]     = useState<QuickShoeEntry[]>([EMPTY_ENTRY()]);
+  const [targetUrl, setTargetUrl] = useState('');
+  const [result, setResult]       = useState<{
+    recommendedSize: number;
+    targetBrand: string;
+    confidenceScore: number;
+    reasoning: string;
+  } | null>(null);
+  const [loading, setLoading]     = useState(false);
 
-  const filteredBrands = BRANDS.filter(b =>
-    b.name.toLowerCase().includes(brandQuery.toLowerCase())
-  );
-
-  const handleCheck = () => {
-    if (!brand || !currentSize) return;
-    // 簡易診断用プロファイル（実登録なし・その場限り）
-    const tempProfile: FootProfile = {
-      foot_type: footProfile?.foot_type ?? 'standard',
-      default_size: parseFloat(currentSize),
-      updated_at: new Date().toISOString(),
-    };
-    const r = getSizeRecommendation({
-      brandName: brand,
-      category,
-      footProfile: tempProfile,
-      pastShoes: shoes,
-    });
-    setResult(r);
+  const addEntry = () => {
+    if (entries.length >= 5) return;
+    setEntries(p => [...p, EMPTY_ENTRY()]);
   };
 
+  const updateEntry = (i: number, patch: Partial<QuickShoeEntry>) => {
+    setEntries(p => p.map((e, idx) => idx === i ? { ...e, ...patch } : e));
+    setResult(null);
+  };
+
+  // URLからブランド名を推測
+  const detectBrandFromUrl = (url: string): string => {
+    const lower = url.toLowerCase();
+    const found = BRANDS.find(b => lower.includes(b.name.toLowerCase()));
+    return found?.name ?? '';
+  };
+
+  const handleCheck = async () => {
+    const valid = entries.filter(e => e.brand && e.size);
+    if (valid.length === 0) return;
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 800));
+
+    // URLからターゲットブランドを推測
+    const urlBrand = targetUrl ? detectBrandFromUrl(targetUrl) : '';
+    const targetBrand = urlBrand || valid[0].brand;
+
+    // 過去の靴データとして扱い推奨計算
+    const tempShoes: Shoe[] = valid.map((e, i) => ({
+      id: `quick-${i}`,
+      brand: e.brand,
+      category: 'sneakers' as ShoeCategory,
+      size: parseFloat(e.size),
+      fit_feedback: e.fit_feedback,
+      status: 'active' as const,
+      created_at: new Date().toISOString(),
+    }));
+
+    // ベースサイズ: ぴったりの靴の平均
+    const perfectShoes = tempShoes.filter(s => s.fit_feedback === 'perfect');
+    const baseSize = perfectShoes.length > 0
+      ? perfectShoes.reduce((s, sh) => s + sh.size, 0) / perfectShoes.length
+      : parseFloat(valid[0].size);
+
+    const tempProfile: FootProfile = {
+      foot_type: footProfile?.foot_type ?? 'standard',
+      default_size: baseSize,
+      updated_at: new Date().toISOString(),
+    };
+
+    const r = getSizeRecommendation({
+      brandName: targetBrand,
+      category: 'sneakers',
+      footProfile: tempProfile,
+      pastShoes: [...shoes, ...tempShoes],
+    });
+
+    setResult({ ...r, targetBrand });
+    setLoading(false);
+  };
+
+  const fitOptions: { value: FitFeedback; label: string }[] = [
+    { value: 'too_small',      label: 'かなり小さい / Too Small'    },
+    { value: 'slightly_small', label: 'やや小さい / Slightly Small'  },
+    { value: 'perfect',        label: 'ぴったり / Perfect'           },
+    { value: 'slightly_large', label: 'やや大きい / Slightly Large'  },
+    { value: 'too_large',      label: 'かなり大きい / Too Large'     },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md shadow-2xl">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">簡易サイズチェック</h2>
-            <p className="text-xs text-gray-400 mt-0.5">ブランドと通常サイズを入力するだけ</p>
-          </div>
-          <button onClick={onClose} className="text-gray-300 hover:text-gray-700 transition-colors">
-            <X className="w-5 h-5" strokeWidth={1.5} />
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-white w-full max-w-2xl shadow-2xl rounded-2xl my-8 overflow-hidden">
+
+        {/* ── ヘッダー（青いグラデーション） */}
+        <div className="relative bg-gradient-to-br from-blue-600 to-indigo-700 px-8 pt-10 pb-8 text-center">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
+          >
+            <X className="w-6 h-6" strokeWidth={1.5} />
           </button>
+          <h2 className="text-3xl font-bold text-white mb-1">簡易サイズチェック</h2>
+          <p className="text-lg font-semibold text-white/90 mb-3">Quick Size Check</p>
+          <p className="text-sm text-white/70 leading-relaxed">
+            持っている靴の情報を入力して、最適なサイズを見つけましょう<br />
+            <span className="text-white/50">Enter your shoe info to find your perfect size</span>
+          </p>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
-          {/* ブランド */}
-          <div className="relative">
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">ブランド</label>
-            <input
-              type="text"
-              value={brandQuery}
-              onChange={e => { setBrandQuery(e.target.value); setBrand(''); setShowDrop(true); setResult(null); }}
-              onFocus={() => setShowDrop(true)}
-              placeholder="例: Nike"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
-            />
-            {brand && (
-              <span className="absolute right-3 top-8 text-xs text-green-600 flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" strokeWidth={2.5} /> {brand}
-              </span>
-            )}
-            {showDrop && filteredBrands.length > 0 && !brand && (
-              <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-44 overflow-y-auto">
-                {filteredBrands.map(b => (
-                  <button
-                    key={b.name}
-                    onClick={() => { setBrand(b.name); setBrandQuery(b.name); setShowDrop(false); setResult(null); }}
-                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex justify-between"
-                  >
-                    <span>{b.name}</span>
-                    <span className="text-xs text-gray-400">
-                      {b.width_tendency === 'wide' ? '幅広' : b.width_tendency === 'narrow' ? '細め' : '標準'}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        <div className="px-8 py-6 space-y-6">
 
-          {/* カテゴリ */}
+          {/* ── 持っている靴リスト */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">カテゴリ</label>
-            <div className="relative">
-              <select
-                value={category}
-                onChange={e => { setCategory(e.target.value as ShoeCategory); setResult(null); }}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm appearance-none"
-              >
-                {Object.entries(CATEGORY_LABELS).map(([k, l]) => (
-                  <option key={k} value={k}>{l}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={1.5} />
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-gray-900">
+                  持っている靴 / Your Shoes
+                  <span className="text-blue-600 ml-1">({entries.length}/5)</span>
+                </h3>
+              </div>
+              {entries.length < 5 && (
+                <button
+                  onClick={addEntry}
+                  className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" strokeWidth={2} />
+                  追加 / Add
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {entries.map((entry, i) => (
+                <div key={i} className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm font-semibold text-gray-700">靴 {i + 1} / Shoe {i + 1}</p>
+                    {entries.length > 1 && (
+                      <button
+                        onClick={() => setEntries(p => p.filter((_, idx) => idx !== i))}
+                        className="text-gray-300 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-4 h-4" strokeWidth={1.5} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* ブランド */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Brand <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={entry.brand}
+                          onChange={e => updateEntry(i, { brand: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white text-gray-700"
+                        >
+                          <option value="">Select brand...</option>
+                          {BRANDS.map(b => (
+                            <option key={b.name} value={b.name}>{b.name}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={1.5} />
+                      </div>
+                    </div>
+
+                    {/* サイズ */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">サイズ / Size (cm)</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="20"
+                        max="35"
+                        value={entry.size}
+                        onChange={e => updateEntry(i, { size: e.target.value })}
+                        placeholder="26.5"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+
+                    {/* フィット感 */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">フィット感 / Fit</label>
+                      <div className="relative">
+                        <select
+                          value={entry.fit_feedback}
+                          onChange={e => updateEntry(i, { fit_feedback: e.target.value as FitFeedback })}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white"
+                        >
+                          {fitOptions.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={1.5} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* 通常サイズ */}
+          {/* ── 欲しい靴のURL */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">通常履いているサイズ (cm)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              欲しい靴のURL / Target Shoe URL
+              <span className="text-xs text-gray-400 font-normal ml-2">（任意 - ブランドを自動検出）</span>
+            </label>
             <input
-              type="number"
-              step="0.5"
-              min="20"
-              max="35"
-              value={currentSize}
-              onChange={e => { setCurrentSize(e.target.value); setResult(null); }}
-              placeholder="26.5"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+              type="url"
+              value={targetUrl}
+              onChange={e => { setTargetUrl(e.target.value); setResult(null); }}
+              placeholder="https://..."
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
+            {targetUrl && detectBrandFromUrl(targetUrl) && (
+              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+                {detectBrandFromUrl(targetUrl)} を検出しました
+              </p>
+            )}
           </div>
 
-          {!footProfile && (
-            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-              足タイプ未診断のため標準タイプで計算します
-            </p>
-          )}
-
+          {/* ── 診断ボタン */}
           <button
             onClick={handleCheck}
-            disabled={!brand || !currentSize}
-            className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            disabled={entries.every(e => !e.brand || !e.size) || loading}
+            className="w-full bg-blue-600 text-white py-4 rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition-colors flex items-center justify-center gap-2 text-sm"
           >
-            <Sparkles className="w-4 h-4" strokeWidth={1.5} />
-            サイズをチェックする
+            {loading ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" strokeWidth={2} />診断中...</>
+            ) : (
+              <><Search className="w-4 h-4" strokeWidth={2} />サイズを診断 / Check Size</>
+            )}
           </button>
 
-          {/* 結果 */}
+          {/* ── 診断結果 */}
           {result && (
-            <div className="border border-gray-100 rounded-xl p-5 bg-gray-50">
-              <p className="text-xs font-medium text-gray-400 mb-1 text-center">推奨サイズ</p>
-              <p className="text-4xl font-bold text-gray-900 text-center mb-1">
-                {result.recommendedSize}
-                <span className="text-lg font-normal text-gray-500 ml-1">cm</span>
+            <div className="border-2 border-blue-200 rounded-xl p-6 bg-blue-50">
+              <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider text-center mb-1">
+                {result.targetBrand} の推奨サイズ
               </p>
-              <p className="text-xs text-gray-400 text-center mb-3">信頼度 {result.confidenceScore}%</p>
-              <div className="text-xs text-gray-500 leading-relaxed whitespace-pre-line bg-white border border-gray-100 rounded-lg p-3">
+              <p className="text-5xl font-bold text-blue-700 text-center mb-1">
+                {result.recommendedSize}
+                <span className="text-xl font-normal text-blue-400 ml-1">cm</span>
+              </p>
+              <p className="text-xs text-blue-400 text-center mb-4">信頼度 {result.confidenceScore}%</p>
+              <div className="bg-white rounded-lg p-4 text-xs text-gray-600 leading-relaxed whitespace-pre-line">
                 {result.reasoning}
               </div>
             </div>
           )}
+
+          {/* ── さらに精度を上げませんか？ CTA */}
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white">
+            <h4 className="text-lg font-bold mb-0.5">さらに精度を上げませんか？</h4>
+            <p className="text-sm font-semibold text-white/80 mb-3">Want More Accurate Results?</p>
+            <p className="text-sm text-white/80 leading-relaxed mb-4">
+              足タイプ診断をすると、より詳細な足の情報を登録でき、精度の高いサイズ診断が可能になります。<br />
+              <span className="text-white/60 text-xs">Register an account to store detailed foot measurements and get more accurate size recommendations.</span>
+            </p>
+            <ul className="space-y-2 text-sm">
+              {[
+                '足の詳細な計測データを保存',
+                'ブランド別のサイズ傾向を分析',
+                '靴コレクションの管理',
+                'AI powered サイズレコメンド',
+              ].map(item => (
+                <li key={item} className="flex items-center gap-2 text-white/90">
+                  <Check className="w-4 h-4 text-white/70" strokeWidth={2.5} />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
         </div>
       </div>
     </div>
