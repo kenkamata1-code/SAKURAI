@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Package, Image, Users, Shield, BarChart3, ShoppingBag, Shirt, Ruler } from 'lucide-react';
+import { Package, Image, Users, Shield, BarChart3, ShoppingBag, Shirt, Footprints } from 'lucide-react';
 
 export default function AdminDashboard() {
   const adminSections = [
@@ -28,11 +28,11 @@ export default function AdminDashboard() {
       color: 'border-gray-900',
     },
     {
-      title: '足計測管理',
-      subtitle: 'Measurement Management',
-      description: '測定フローの起動・ユーザー紐付け・結果確認・Gemini AI解析',
-      icon: Ruler,
-      path: '/admin/measurement',
+      title: 'SHOECLOAK',
+      subtitle: 'Shoe Wardrobe & Size Intelligence',
+      description: '靴の管理・足タイプ診断・AIサイズ相談。Boltプロトタイプ機能を統合。',
+      icon: Footprints,
+      path: '/admin/shoecloak',
       color: 'border-gray-900',
       badge: 'NEW',
     },
